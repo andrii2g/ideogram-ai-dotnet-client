@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+
 namespace Ideogram.Client.Constants;
 
 public static class IdeogramMagicPrompt
