@@ -6,3 +6,5 @@
 /.vs/IdeogramV3DotNet/FileContentIndex
 /samples/Ideogram.Client.Console/obj
 /src/Ideogram.Client/obj
+/samples/Ideogram.Client.Console/bin/Debug/net10.0
+/src/Ideogram.Client/bin/Debug/net10.0
