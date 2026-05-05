@@ -10,4 +10,9 @@ internal static class JsonDefaults
         WriteIndented = false,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
+
+    public static readonly JsonSerializerOptions Response = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
 }
