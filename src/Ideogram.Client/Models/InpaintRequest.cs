@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace Ideogram.Client.Models;
 
 public sealed class InpaintRequest
