@@ -1,0 +1,8 @@
+﻿################################################################################
+# This .gitignore file was automatically created by Microsoft(R) Visual Studio.
+################################################################################
+
+/.dotnet-home
+/.vs/IdeogramV3DotNet/FileContentIndex
+/samples/Ideogram.Client.Console/obj
+/src/Ideogram.Client/obj
