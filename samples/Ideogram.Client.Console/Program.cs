@@ -1,7 +1,6 @@
-using System.Globalization;
-using Ideogram.Client;
 using Ideogram.Client.Constants;
 using Ideogram.Client.Models;
+using System.Globalization;
 
 namespace Ideogram.Client.ConsoleApp;
 
@@ -150,7 +149,8 @@ internal static class Program
                     "generate",
                     BuildGenerateFromArgs(parsedArgs),
                     parsedArgs.Download ?? false,
-                    static (c, request) => c.GenerateAsync(request)).ConfigureAwait(false);
+                    static (c, request) => c.GenerateAsync(request),
+                    defaultDownloadPrompt: false).ConfigureAwait(false);
                 break;
             case "transparent":
                 await ExecuteRequestAsync(
@@ -159,7 +159,8 @@ internal static class Program
                     "transparent",
                     BuildGenerateTransparentFromArgs(parsedArgs),
                     parsedArgs.Download ?? false,
-                    static (c, request) => c.GenerateTransparentAsync(request)).ConfigureAwait(false);
+                    static (c, request) => c.GenerateTransparentAsync(request),
+                    defaultDownloadPrompt: false).ConfigureAwait(false);
                 break;
             case "inpaint":
                 await ExecuteRequestAsync(
@@ -168,7 +169,8 @@ internal static class Program
                     "inpaint",
                     BuildInpaintFromArgs(parsedArgs),
                     parsedArgs.Download ?? false,
-                    static (c, request) => c.InpaintAsync(request)).ConfigureAwait(false);
+                    static (c, request) => c.InpaintAsync(request),
+                    defaultDownloadPrompt: false).ConfigureAwait(false);
                 break;
             case "remix":
                 await ExecuteRequestAsync(
@@ -177,7 +179,8 @@ internal static class Program
                     "remix",
                     BuildRemixFromArgs(parsedArgs),
                     parsedArgs.Download ?? false,
-                    static (c, request) => c.RemixAsync(request)).ConfigureAwait(false);
+                    static (c, request) => c.RemixAsync(request),
+                    defaultDownloadPrompt: false).ConfigureAwait(false);
                 break;
             case "reframe":
                 await ExecuteRequestAsync(
@@ -186,7 +189,8 @@ internal static class Program
                     "reframe",
                     BuildReframeFromArgs(parsedArgs),
                     parsedArgs.Download ?? false,
-                    static (c, request) => c.ReframeAsync(request)).ConfigureAwait(false);
+                    static (c, request) => c.ReframeAsync(request),
+                    defaultDownloadPrompt: false).ConfigureAwait(false);
                 break;
             case "replace-background":
                 await ExecuteRequestAsync(
@@ -195,7 +199,8 @@ internal static class Program
                     "replace-background",
                     BuildReplaceBackgroundFromArgs(parsedArgs),
                     parsedArgs.Download ?? false,
-                    static (c, request) => c.ReplaceBackgroundAsync(request)).ConfigureAwait(false);
+                    static (c, request) => c.ReplaceBackgroundAsync(request),
+                    defaultDownloadPrompt: false).ConfigureAwait(false);
                 break;
             case "download":
                 var url = RequireArg(parsedArgs, "url");
@@ -596,7 +601,7 @@ internal static class Program
     private static IReadOnlyList<IdeogramFile>? ParseImageFiles(string? input)
     {
         var paths = ParseStringList(input);
-        return paths?.Select(IdeogramFile.FromPath).ToArray();
+        return paths?.Select(static path => IdeogramFile.FromPath(path)).ToArray();
     }
 
     private static IReadOnlyList<string>? ParseStringList(string? input)

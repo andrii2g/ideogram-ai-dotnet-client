@@ -134,7 +134,7 @@ internal static class ConsolePrompts
                 return input
                     .Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                     .Select(TrimOuterQuotes)
-                    .Select(IdeogramFile.FromPath)
+                    .Select(static path => IdeogramFile.FromPath(path))
                     .ToArray();
             }
             catch (Exception ex)
