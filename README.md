@@ -18,8 +18,8 @@ This repository intentionally uses no third-party NuGet packages.
 ## Build
 
 ```bash
-dotnet restore IdeogramV3DotNet.sln
-dotnet build IdeogramV3DotNet.sln
+dotnet restore IdeogramV3DotNet.slnx
+dotnet build IdeogramV3DotNet.slnx
 ```
 
 ## API key setup
