@@ -5,12 +5,27 @@
     <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <PackageId>A2G.Ideogram.Client</PackageId>
+    <Title>A2G Ideogram .NET Client</Title>
+    <Description>.NET client for Ideogram AI API v3 with HttpClient-based transport and optional DI integration.</Description>
+    <Authors>A2G</Authors>
+    <PackageTags>ideogram;ai;dotnet;httpclient;github-packages</PackageTags>
+    <RepositoryUrl>https://github.com/andrii2g/ideogram-ai-dotnet-client</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageProjectUrl>https://github.com/andrii2g/ideogram-ai-dotnet-client</PackageProjectUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <Version>1.0.0</Version>
   </PropertyGroup>
 
 </Project>

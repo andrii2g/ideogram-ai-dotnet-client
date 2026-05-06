@@ -1,6 +1,6 @@
 # Ideogram AI API v3 REST Client for .NET 10
 
-Dependency-free `.NET 10` client library and companion console app for Ideogram AI API v3. The implementation uses only the .NET Base Class Library and talks to the API with `HttpClient` and `multipart/form-data`.
+.NET 10 client library and companion sample apps for Ideogram AI API v3. The client talks to the API with `HttpClient` and `multipart/form-data`, and also includes optional DI registration support based on `IHttpClientFactory`.
 
 ## Supported endpoints
 
@@ -10,10 +10,6 @@ Dependency-free `.NET 10` client library and companion console app for Ideogram 
 - `POST /v1/ideogram-v3/remix`
 - `POST /v1/ideogram-v3/reframe`
 - `POST /v1/ideogram-v3/replace-background`
-
-## Package policy
-
-This repository intentionally uses no third-party NuGet packages.
 
 ## Build
 
