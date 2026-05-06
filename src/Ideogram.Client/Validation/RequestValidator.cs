@@ -1,10 +1,7 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Text.RegularExpressions;
 using Ideogram.Client.Constants;
 using Ideogram.Client.Internal;
 using Ideogram.Client.Models;
+using System.Text.RegularExpressions;
 
 namespace Ideogram.Client.Validation;
 

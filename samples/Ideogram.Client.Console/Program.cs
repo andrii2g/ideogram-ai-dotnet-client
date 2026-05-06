@@ -858,6 +858,12 @@ internal static class Program
         return paths?.Select(static path => IdeogramFile.FromPath(path)).ToArray();
     }
 
+    private static IReadOnlyList<IdeogramFile>? ParseImageUrls(string? input)
+    {
+        var urls = ParseStringList(input);
+        return urls?.Select(static url => IdeogramFile.FromUrl(url)).ToArray();
+    }
+
     private static IReadOnlyList<string>? ParseStringList(string? input)
     {
         if (string.IsNullOrWhiteSpace(input))

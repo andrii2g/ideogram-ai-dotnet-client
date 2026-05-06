@@ -1,8 +1,8 @@
+using Ideogram.Client.Models;
 using System.Globalization;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
-using Ideogram.Client.Models;
 
 namespace Ideogram.Client.Internal;
 

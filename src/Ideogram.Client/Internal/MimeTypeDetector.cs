@@ -1,7 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-
 namespace Ideogram.Client.Internal;
 
 internal static class MimeTypeDetector
