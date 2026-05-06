@@ -3,11 +3,12 @@
 ################################################################################
 
 /.dotnet-home
-/samples/Ideogram.Client.Console/obj
-/src/Ideogram.Client/obj
-/samples/Ideogram.Client.Console/bin
-/src/Ideogram.Client/bin
 /.vs
-/.probe/bin
-/.probe/obj
+/.probe
 /.nuget-packages
+/samples/Ideogram.Client.Console/bin
+/samples/Ideogram.Client.Console/obj
+/samples/Ideogram.Client.Samples/bin
+/samples/Ideogram.Client.Samples/obj
+/src/Ideogram.Client/bin
+/src/Ideogram.Client/obj

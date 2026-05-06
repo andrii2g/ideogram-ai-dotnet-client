@@ -22,7 +22,7 @@ internal static class Program
             Recursive = true
         };
 
-        var rootCommand = new RootCommand("Ideogram API v3 manual console")
+        var rootCommand = new RootCommand("Ideogram.Client samples")
         {
             Options =
             {
@@ -34,11 +34,7 @@ internal static class Program
         {
             var outputDirectory = OutputWriter.CreateOutputDirectory();
 
-            using var client = new IdeogramClient(new IdeogramClientOptions
-            {
-                ApiKey = ResolveApiKey(parseResult.GetValue(apiKeyOption))
-            });
-
+            using var client = CreateClient(parseResult.GetValue(apiKeyOption));
             await RunInteractiveMenuAsync(client, outputDirectory, cancellationToken).ConfigureAwait(false);
             return 0;
         });
@@ -75,7 +71,7 @@ internal static class Program
         var characterReferenceImageMasksOption = CreateStringOption("--character-reference-image-masks", "Semicolon-separated character reference mask paths.");
         var downloadOption = CreateDownloadOption();
 
-        var command = new Command("generate", "Generate images.");
+        var command = new Command("generate", "Run the generate sample.");
         command.Options.Add(promptOption);
         command.Options.Add(seedOption);
         command.Options.Add(resolutionOption);
@@ -95,11 +91,9 @@ internal static class Program
         command.Options.Add(characterReferenceImageMasksOption);
         command.Options.Add(downloadOption);
 
-        command.SetAction((parseResult, cancellationToken) => ExecuteCommandAsync(
-            parseResult,
-            apiKeyOption,
-            static (client, request, token) => client.GenerateAsync(request, token),
-            new GenerateRequest
+        command.SetAction((parseResult, cancellationToken) =>
+        {
+            var options = new GenerateSampleOptions
             {
                 Prompt = parseResult.GetValue(promptOption)!,
                 Seed = parseResult.GetValue(seedOption),
@@ -117,10 +111,15 @@ internal static class Program
                 StyleReferenceImages = ParseImageFiles(parseResult.GetValue(styleReferenceImagesOption)),
                 CharacterReferenceImages = ParseImageFiles(parseResult.GetValue(characterReferenceImagesOption)),
                 CharacterReferenceImageMasks = ParseImageFiles(parseResult.GetValue(characterReferenceImageMasksOption))
-            },
-            "generate",
-            parseResult.GetValue(downloadOption),
-            cancellationToken));
+            };
+
+            return ExecuteSampleCommandAsync(
+                parseResult.GetValue(apiKeyOption),
+                "generate",
+                parseResult.GetValue(downloadOption),
+                (client, token) => IdeogramClientSamples.GenerateAsync(client, options, token),
+                cancellationToken);
+        });
 
         return command;
     }
@@ -137,7 +136,7 @@ internal static class Program
         var numImagesOption = CreateIntOption("--num-images", "Number of images.");
         var downloadOption = CreateDownloadOption();
 
-        var command = new Command("transparent", "Generate transparent-background images.");
+        var command = new Command("transparent", "Run the transparent generation sample.");
         command.Options.Add(promptOption);
         command.Options.Add(seedOption);
         command.Options.Add(upscaleFactorOption);
@@ -148,11 +147,9 @@ internal static class Program
         command.Options.Add(numImagesOption);
         command.Options.Add(downloadOption);
 
-        command.SetAction((parseResult, cancellationToken) => ExecuteCommandAsync(
-            parseResult,
-            apiKeyOption,
-            static (client, request, token) => client.GenerateTransparentAsync(request, token),
-            new GenerateTransparentRequest
+        command.SetAction((parseResult, cancellationToken) =>
+        {
+            var options = new GenerateTransparentSampleOptions
             {
                 Prompt = parseResult.GetValue(promptOption)!,
                 Seed = parseResult.GetValue(seedOption),
@@ -162,10 +159,15 @@ internal static class Program
                 MagicPrompt = parseResult.GetValue(magicPromptOption),
                 NegativePrompt = parseResult.GetValue(negativePromptOption),
                 NumImages = parseResult.GetValue(numImagesOption)
-            },
-            "transparent",
-            parseResult.GetValue(downloadOption),
-            cancellationToken));
+            };
+
+            return ExecuteSampleCommandAsync(
+                parseResult.GetValue(apiKeyOption),
+                "transparent",
+                parseResult.GetValue(downloadOption),
+                (client, token) => IdeogramClientSamples.GenerateTransparentAsync(client, options, token),
+                cancellationToken);
+        });
 
         return command;
     }
@@ -189,7 +191,7 @@ internal static class Program
         var characterReferenceImageMasksOption = CreateStringOption("--character-reference-image-masks", "Semicolon-separated character reference mask paths.");
         var downloadOption = CreateDownloadOption();
 
-        var command = new Command("inpaint", "Inpaint an image.");
+        var command = new Command("inpaint", "Run the inpaint sample.");
         command.Options.Add(imageOption);
         command.Options.Add(maskOption);
         command.Options.Add(promptOption);
@@ -207,11 +209,9 @@ internal static class Program
         command.Options.Add(characterReferenceImageMasksOption);
         command.Options.Add(downloadOption);
 
-        command.SetAction((parseResult, cancellationToken) => ExecuteCommandAsync(
-            parseResult,
-            apiKeyOption,
-            static (client, request, token) => client.InpaintAsync(request, token),
-            new InpaintRequest
+        command.SetAction((parseResult, cancellationToken) =>
+        {
+            var options = new InpaintSampleOptions
             {
                 Image = IdeogramFile.FromPath(parseResult.GetValue(imageOption)!),
                 Mask = IdeogramFile.FromPath(parseResult.GetValue(maskOption)!),
@@ -227,10 +227,15 @@ internal static class Program
                 StyleReferenceImages = ParseImageFiles(parseResult.GetValue(styleReferenceImagesOption)),
                 CharacterReferenceImages = ParseImageFiles(parseResult.GetValue(characterReferenceImagesOption)),
                 CharacterReferenceImageMasks = ParseImageFiles(parseResult.GetValue(characterReferenceImageMasksOption))
-            },
-            "inpaint",
-            parseResult.GetValue(downloadOption),
-            cancellationToken));
+            };
+
+            return ExecuteSampleCommandAsync(
+                parseResult.GetValue(apiKeyOption),
+                "inpaint",
+                parseResult.GetValue(downloadOption),
+                (client, token) => IdeogramClientSamples.InpaintAsync(client, options, token),
+                cancellationToken);
+        });
 
         return command;
     }
@@ -257,7 +262,7 @@ internal static class Program
         var characterReferenceImageMasksOption = CreateStringOption("--character-reference-image-masks", "Semicolon-separated character reference mask paths.");
         var downloadOption = CreateDownloadOption();
 
-        var command = new Command("remix", "Remix an image.");
+        var command = new Command("remix", "Run the remix sample.");
         command.Options.Add(imageOption);
         command.Options.Add(promptOption);
         command.Options.Add(imageWeightOption);
@@ -278,11 +283,9 @@ internal static class Program
         command.Options.Add(characterReferenceImageMasksOption);
         command.Options.Add(downloadOption);
 
-        command.SetAction((parseResult, cancellationToken) => ExecuteCommandAsync(
-            parseResult,
-            apiKeyOption,
-            static (client, request, token) => client.RemixAsync(request, token),
-            new RemixRequest
+        command.SetAction((parseResult, cancellationToken) =>
+        {
+            var options = new RemixSampleOptions
             {
                 Image = IdeogramFile.FromPath(parseResult.GetValue(imageOption)!),
                 Prompt = parseResult.GetValue(promptOption)!,
@@ -301,10 +304,15 @@ internal static class Program
                 StyleReferenceImages = ParseImageFiles(parseResult.GetValue(styleReferenceImagesOption)),
                 CharacterReferenceImages = ParseImageFiles(parseResult.GetValue(characterReferenceImagesOption)),
                 CharacterReferenceImageMasks = ParseImageFiles(parseResult.GetValue(characterReferenceImageMasksOption))
-            },
-            "remix",
-            parseResult.GetValue(downloadOption),
-            cancellationToken));
+            };
+
+            return ExecuteSampleCommandAsync(
+                parseResult.GetValue(apiKeyOption),
+                "remix",
+                parseResult.GetValue(downloadOption),
+                (client, token) => IdeogramClientSamples.RemixAsync(client, options, token),
+                cancellationToken);
+        });
 
         return command;
     }
@@ -323,7 +331,7 @@ internal static class Program
         var styleReferenceImagesOption = CreateStringOption("--style-reference-images", "Semicolon-separated style reference image paths.");
         var downloadOption = CreateDownloadOption();
 
-        var command = new Command("reframe", "Reframe an image.");
+        var command = new Command("reframe", "Run the reframe sample.");
         command.Options.Add(imageOption);
         command.Options.Add(resolutionOption);
         command.Options.Add(numImagesOption);
@@ -336,11 +344,9 @@ internal static class Program
         command.Options.Add(styleReferenceImagesOption);
         command.Options.Add(downloadOption);
 
-        command.SetAction((parseResult, cancellationToken) => ExecuteCommandAsync(
-            parseResult,
-            apiKeyOption,
-            static (client, request, token) => client.ReframeAsync(request, token),
-            new ReframeRequest
+        command.SetAction((parseResult, cancellationToken) =>
+        {
+            var options = new ReframeSampleOptions
             {
                 Image = IdeogramFile.FromPath(parseResult.GetValue(imageOption)!),
                 Resolution = parseResult.GetValue(resolutionOption)!,
@@ -351,10 +357,15 @@ internal static class Program
                 ColorPalette = ParseColorPalette(parseResult.GetValue(colorPaletteOption), parseResult.GetValue(colorPaletteMembersOption)),
                 StyleCodes = ParseStringList(parseResult.GetValue(styleCodesOption)),
                 StyleReferenceImages = ParseImageFiles(parseResult.GetValue(styleReferenceImagesOption))
-            },
-            "reframe",
-            parseResult.GetValue(downloadOption),
-            cancellationToken));
+            };
+
+            return ExecuteSampleCommandAsync(
+                parseResult.GetValue(apiKeyOption),
+                "reframe",
+                parseResult.GetValue(downloadOption),
+                (client, token) => IdeogramClientSamples.ReframeAsync(client, options, token),
+                cancellationToken);
+        });
 
         return command;
     }
@@ -374,7 +385,7 @@ internal static class Program
         var styleReferenceImagesOption = CreateStringOption("--style-reference-images", "Semicolon-separated style reference image paths.");
         var downloadOption = CreateDownloadOption();
 
-        var command = new Command("replace-background", "Replace an image background.");
+        var command = new Command("replace-background", "Run the replace-background sample.");
         command.Options.Add(imageOption);
         command.Options.Add(promptOption);
         command.Options.Add(magicPromptOption);
@@ -388,11 +399,9 @@ internal static class Program
         command.Options.Add(styleReferenceImagesOption);
         command.Options.Add(downloadOption);
 
-        command.SetAction((parseResult, cancellationToken) => ExecuteCommandAsync(
-            parseResult,
-            apiKeyOption,
-            static (client, request, token) => client.ReplaceBackgroundAsync(request, token),
-            new ReplaceBackgroundRequest
+        command.SetAction((parseResult, cancellationToken) =>
+        {
+            var options = new ReplaceBackgroundSampleOptions
             {
                 Image = IdeogramFile.FromPath(parseResult.GetValue(imageOption)!),
                 Prompt = parseResult.GetValue(promptOption)!,
@@ -404,10 +413,15 @@ internal static class Program
                 ColorPalette = ParseColorPalette(parseResult.GetValue(colorPaletteOption), parseResult.GetValue(colorPaletteMembersOption)),
                 StyleCodes = ParseStringList(parseResult.GetValue(styleCodesOption)),
                 StyleReferenceImages = ParseImageFiles(parseResult.GetValue(styleReferenceImagesOption))
-            },
-            "replace-background",
-            parseResult.GetValue(downloadOption),
-            cancellationToken));
+            };
+
+            return ExecuteSampleCommandAsync(
+                parseResult.GetValue(apiKeyOption),
+                "replace-background",
+                parseResult.GetValue(downloadOption),
+                (client, token) => IdeogramClientSamples.ReplaceBackgroundAsync(client, options, token),
+                cancellationToken);
+        });
 
         return command;
     }
@@ -428,10 +442,7 @@ internal static class Program
             var outputPath = parseResult.GetValue(outputOption) ??
                              Path.Combine(outputDirectory, $"downloaded.{DetermineExtensionToken(imageUrl)}");
 
-            using var client = new IdeogramClient(new IdeogramClientOptions
-            {
-                ApiKey = ResolveApiKey(parseResult.GetValue(apiKeyOption))
-            });
+            using var client = CreateClient(parseResult.GetValue(apiKeyOption));
 
             try
             {
@@ -449,25 +460,28 @@ internal static class Program
         return command;
     }
 
-    private static async Task<int> ExecuteCommandAsync<TRequest>(
-        ParseResult parseResult,
-        Option<string?> apiKeyOption,
-        Func<IdeogramClient, TRequest, CancellationToken, Task<IdeogramResponse>> sendAsync,
-        TRequest request,
+    private static IdeogramClient CreateClient(string? commandLineApiKey)
+    {
+        return new IdeogramClient(new IdeogramClientOptions
+        {
+            ApiKey = ResolveApiKey(commandLineApiKey)
+        });
+    }
+
+    private static async Task<int> ExecuteSampleCommandAsync(
+        string? commandLineApiKey,
         string methodName,
         bool shouldDownload,
+        Func<IIdeogramClient, CancellationToken, Task<IdeogramResponse>> executeAsync,
         CancellationToken cancellationToken)
     {
         var outputDirectory = OutputWriter.CreateOutputDirectory();
 
-        using var client = new IdeogramClient(new IdeogramClientOptions
-        {
-            ApiKey = ResolveApiKey(parseResult.GetValue(apiKeyOption))
-        });
+        using var client = CreateClient(commandLineApiKey);
 
         try
         {
-            var response = await sendAsync(client, request, cancellationToken).ConfigureAwait(false);
+            var response = await executeAsync(client, cancellationToken).ConfigureAwait(false);
             OutputWriter.PrintResponseSummary(response);
             var responsePath = OutputWriter.SaveResponseJson(outputDirectory, methodName, response);
             OutputWriter.PrintSavedResponsePath(responsePath);
@@ -519,16 +533,16 @@ internal static class Program
         }
     }
 
-    private static async Task RunInteractiveMenuAsync(IdeogramClient client, string outputDirectory, CancellationToken cancellationToken)
+    private static async Task RunInteractiveMenuAsync(IIdeogramClient client, string outputDirectory, CancellationToken cancellationToken)
     {
         while (true)
         {
-            System.Console.WriteLine("Ideogram API v3 Manual Console");
+            System.Console.WriteLine("Ideogram.Client Samples");
             System.Console.WriteLine();
             System.Console.WriteLine("API key: loaded");
             System.Console.WriteLine($"Output directory: ./{outputDirectory.Replace('\\', '/')}");
             System.Console.WriteLine();
-            System.Console.WriteLine("Select method:");
+            System.Console.WriteLine("Select sample:");
             System.Console.WriteLine("  1) Generate");
             System.Console.WriteLine("  2) Generate transparent");
             System.Console.WriteLine("  3) Inpaint");
@@ -547,17 +561,17 @@ internal static class Program
                 case "0":
                     return;
                 case "1":
-                    await ExecuteGenerateInteractiveAsync(client, outputDirectory, cancellationToken).ConfigureAwait(false);
+                    await RunGenerateInteractiveAsync(client, outputDirectory, cancellationToken).ConfigureAwait(false);
                     break;
                 case "2":
-                    await ExecuteGenerateTransparentInteractiveAsync(client, outputDirectory, cancellationToken).ConfigureAwait(false);
+                    await RunGenerateTransparentInteractiveAsync(client, outputDirectory, cancellationToken).ConfigureAwait(false);
                     break;
                 case "3":
                     System.Console.WriteLine("Mask must be the same dimensions as the image. Per Ideogram docs, black mask regions indicate the regions to edit.");
-                    await ExecuteInpaintInteractiveAsync(client, outputDirectory, cancellationToken).ConfigureAwait(false);
+                    await RunInpaintInteractiveAsync(client, outputDirectory, cancellationToken).ConfigureAwait(false);
                     break;
                 case "4":
-                    await ExecuteRemixInteractiveAsync(client, outputDirectory, cancellationToken).ConfigureAwait(false);
+                    await RunRemixInteractiveAsync(client, outputDirectory, cancellationToken).ConfigureAwait(false);
                     break;
                 case "5":
                     System.Console.WriteLine("Common v3 resolutions:");
@@ -568,10 +582,10 @@ internal static class Program
                     System.Console.WriteLine("  800x1280");
                     System.Console.WriteLine("  1536x512");
                     System.Console.WriteLine("  512x1536");
-                    await ExecuteReframeInteractiveAsync(client, outputDirectory, cancellationToken).ConfigureAwait(false);
+                    await RunReframeInteractiveAsync(client, outputDirectory, cancellationToken).ConfigureAwait(false);
                     break;
                 case "6":
-                    await ExecuteReplaceBackgroundInteractiveAsync(client, outputDirectory, cancellationToken).ConfigureAwait(false);
+                    await RunReplaceBackgroundInteractiveAsync(client, outputDirectory, cancellationToken).ConfigureAwait(false);
                     break;
                 case "7":
                     await DownloadSingleImageInteractiveAsync(client, outputDirectory, cancellationToken).ConfigureAwait(false);
@@ -585,9 +599,9 @@ internal static class Program
         }
     }
 
-    private static async Task ExecuteGenerateInteractiveAsync(IdeogramClient client, string outputDirectory, CancellationToken cancellationToken)
+    private static Task RunGenerateInteractiveAsync(IIdeogramClient client, string outputDirectory, CancellationToken cancellationToken)
     {
-        var request = new GenerateRequest
+        var options = new GenerateSampleOptions
         {
             Prompt = ConsolePrompts.RequiredString("Prompt"),
             Seed = ConsolePrompts.OptionalInt("Seed", min: 0),
@@ -607,18 +621,17 @@ internal static class Program
             CharacterReferenceImageMasks = ConsolePrompts.OptionalImageFiles("Character reference image masks")
         };
 
-        await ExecuteInteractiveRequestAsync(
+        return ExecuteInteractiveSampleAsync(
             client,
             outputDirectory,
             "generate",
-            request,
-            static (c, model, token) => c.GenerateAsync(model, token),
-            cancellationToken).ConfigureAwait(false);
+            (sampleClient, token) => IdeogramClientSamples.GenerateAsync(sampleClient, options, token),
+            cancellationToken);
     }
 
-    private static async Task ExecuteGenerateTransparentInteractiveAsync(IdeogramClient client, string outputDirectory, CancellationToken cancellationToken)
+    private static Task RunGenerateTransparentInteractiveAsync(IIdeogramClient client, string outputDirectory, CancellationToken cancellationToken)
     {
-        var request = new GenerateTransparentRequest
+        var options = new GenerateTransparentSampleOptions
         {
             Prompt = ConsolePrompts.RequiredString("Prompt"),
             Seed = ConsolePrompts.OptionalInt("Seed", min: 0),
@@ -630,18 +643,17 @@ internal static class Program
             NumImages = ConsolePrompts.OptionalInt("Num images", 1, 1, 8)
         };
 
-        await ExecuteInteractiveRequestAsync(
+        return ExecuteInteractiveSampleAsync(
             client,
             outputDirectory,
             "transparent",
-            request,
-            static (c, model, token) => c.GenerateTransparentAsync(model, token),
-            cancellationToken).ConfigureAwait(false);
+            (sampleClient, token) => IdeogramClientSamples.GenerateTransparentAsync(sampleClient, options, token),
+            cancellationToken);
     }
 
-    private static async Task ExecuteInpaintInteractiveAsync(IdeogramClient client, string outputDirectory, CancellationToken cancellationToken)
+    private static Task RunInpaintInteractiveAsync(IIdeogramClient client, string outputDirectory, CancellationToken cancellationToken)
     {
-        var request = new InpaintRequest
+        var options = new InpaintSampleOptions
         {
             Image = ConsolePrompts.RequiredImageFile("Image path"),
             Mask = ConsolePrompts.RequiredImageFile("Mask path"),
@@ -659,18 +671,17 @@ internal static class Program
             CharacterReferenceImageMasks = ConsolePrompts.OptionalImageFiles("Character reference image masks")
         };
 
-        await ExecuteInteractiveRequestAsync(
+        return ExecuteInteractiveSampleAsync(
             client,
             outputDirectory,
             "inpaint",
-            request,
-            static (c, model, token) => c.InpaintAsync(model, token),
-            cancellationToken).ConfigureAwait(false);
+            (sampleClient, token) => IdeogramClientSamples.InpaintAsync(sampleClient, options, token),
+            cancellationToken);
     }
 
-    private static async Task ExecuteRemixInteractiveAsync(IdeogramClient client, string outputDirectory, CancellationToken cancellationToken)
+    private static Task RunRemixInteractiveAsync(IIdeogramClient client, string outputDirectory, CancellationToken cancellationToken)
     {
-        var request = new RemixRequest
+        var options = new RemixSampleOptions
         {
             Image = ConsolePrompts.RequiredImageFile("Image path"),
             Prompt = ConsolePrompts.RequiredString("Prompt"),
@@ -691,18 +702,17 @@ internal static class Program
             CharacterReferenceImageMasks = ConsolePrompts.OptionalImageFiles("Character reference image masks")
         };
 
-        await ExecuteInteractiveRequestAsync(
+        return ExecuteInteractiveSampleAsync(
             client,
             outputDirectory,
             "remix",
-            request,
-            static (c, model, token) => c.RemixAsync(model, token),
-            cancellationToken).ConfigureAwait(false);
+            (sampleClient, token) => IdeogramClientSamples.RemixAsync(sampleClient, options, token),
+            cancellationToken);
     }
 
-    private static async Task ExecuteReframeInteractiveAsync(IdeogramClient client, string outputDirectory, CancellationToken cancellationToken)
+    private static Task RunReframeInteractiveAsync(IIdeogramClient client, string outputDirectory, CancellationToken cancellationToken)
     {
-        var request = new ReframeRequest
+        var options = new ReframeSampleOptions
         {
             Image = ConsolePrompts.RequiredImageFile("Image path"),
             Resolution = ConsolePrompts.RequiredString("Resolution"),
@@ -715,18 +725,17 @@ internal static class Program
             StyleReferenceImages = ConsolePrompts.OptionalImageFiles("Style reference images")
         };
 
-        await ExecuteInteractiveRequestAsync(
+        return ExecuteInteractiveSampleAsync(
             client,
             outputDirectory,
             "reframe",
-            request,
-            static (c, model, token) => c.ReframeAsync(model, token),
-            cancellationToken).ConfigureAwait(false);
+            (sampleClient, token) => IdeogramClientSamples.ReframeAsync(sampleClient, options, token),
+            cancellationToken);
     }
 
-    private static async Task ExecuteReplaceBackgroundInteractiveAsync(IdeogramClient client, string outputDirectory, CancellationToken cancellationToken)
+    private static Task RunReplaceBackgroundInteractiveAsync(IIdeogramClient client, string outputDirectory, CancellationToken cancellationToken)
     {
-        var request = new ReplaceBackgroundRequest
+        var options = new ReplaceBackgroundSampleOptions
         {
             Image = ConsolePrompts.RequiredImageFile("Image path"),
             Prompt = ConsolePrompts.RequiredString("Prompt"),
@@ -740,26 +749,24 @@ internal static class Program
             StyleReferenceImages = ConsolePrompts.OptionalImageFiles("Style reference images")
         };
 
-        await ExecuteInteractiveRequestAsync(
+        return ExecuteInteractiveSampleAsync(
             client,
             outputDirectory,
             "replace-background",
-            request,
-            static (c, model, token) => c.ReplaceBackgroundAsync(model, token),
-            cancellationToken).ConfigureAwait(false);
+            (sampleClient, token) => IdeogramClientSamples.ReplaceBackgroundAsync(sampleClient, options, token),
+            cancellationToken);
     }
 
-    private static async Task ExecuteInteractiveRequestAsync<TRequest>(
-        IdeogramClient client,
+    private static async Task ExecuteInteractiveSampleAsync(
+        IIdeogramClient client,
         string outputDirectory,
         string methodName,
-        TRequest request,
-        Func<IdeogramClient, TRequest, CancellationToken, Task<IdeogramResponse>> sendAsync,
+        Func<IIdeogramClient, CancellationToken, Task<IdeogramResponse>> executeAsync,
         CancellationToken cancellationToken)
     {
         try
         {
-            var response = await sendAsync(client, request, cancellationToken).ConfigureAwait(false);
+            var response = await executeAsync(client, cancellationToken).ConfigureAwait(false);
             OutputWriter.PrintResponseSummary(response);
             var responsePath = OutputWriter.SaveResponseJson(outputDirectory, methodName, response);
             OutputWriter.PrintSavedResponsePath(responsePath);
@@ -776,7 +783,7 @@ internal static class Program
         }
     }
 
-    private static async Task DownloadSingleImageInteractiveAsync(IdeogramClient client, string outputDirectory, CancellationToken cancellationToken)
+    private static async Task DownloadSingleImageInteractiveAsync(IIdeogramClient client, string outputDirectory, CancellationToken cancellationToken)
     {
         var imageUrl = ConsolePrompts.RequiredString("Image URL");
         var outputPath = ConsolePrompts.OptionalPath("Output path") ??

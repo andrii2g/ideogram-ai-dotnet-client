@@ -6,6 +6,7 @@
   </Configurations>
   <Folder Name="/samples/">
     <Project Path="samples/Ideogram.Client.Console/Ideogram.Client.Console.csproj" />
+    <Project Path="samples/Ideogram.Client.Samples/Ideogram.Client.Samples.csproj" />
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/Ideogram.Client/Ideogram.Client.csproj" />
