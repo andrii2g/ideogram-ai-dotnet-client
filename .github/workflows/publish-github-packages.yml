@@ -2,13 +2,15 @@ name: Publish NuGet Package
 
 on:
   push:
+    branches:
+      - main
     tags:
       - "v*"
   workflow_dispatch:
     inputs:
       package_version:
-        description: "NuGet package version 1.0"
-        required: true
+        description: "Optional explicit package version, for example 1.0.1"
+        required: false
         type: string
 
 permissions:
@@ -32,17 +34,22 @@ jobs:
         id: version
         shell: bash
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            VERSION="${{ inputs.package_version }}"
-          else
-            VERSION="${GITHUB_REF_NAME#v}"
-          fi
+          BASE_VERSION="$(grep -oPm1 '(?<=<VersionPrefix>)[^<]+' src/Ideogram.Client/Ideogram.Client.csproj)"
 
-          if [ -z "$VERSION" ]; then
-            echo "Package version could not be resolved." >&2
+          if [ -z "$BASE_VERSION" ]; then
+            echo "Base package version could not be resolved from VersionPrefix." >&2
             exit 1
           fi
 
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.package_version }}" ]; then
+            VERSION="${{ inputs.package_version }}"
+          elif [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="${BASE_VERSION}-ci.${GITHUB_RUN_NUMBER}"
+          fi
+
+          echo "Resolved package version: $VERSION"
           echo "package_version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Restore
