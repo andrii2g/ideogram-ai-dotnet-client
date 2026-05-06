@@ -1,8 +1,8 @@
 using Ideogram.Client.Constants;
 using Ideogram.Client.Models;
+using Microsoft.Extensions.Configuration;
 using System.CommandLine;
 using System.Globalization;
-using System.Text.Json;
 
 namespace Ideogram.Client.ConsoleApp;
 
@@ -18,7 +18,7 @@ internal static class Program
     {
         var apiKeyOption = new Option<string?>("--api-key")
         {
-            Description = "Ideogram API key. Falls back to IDEOGRAM_API_KEY or appsettings.json.",
+            Description = "Ideogram API key. Falls back to IDEOGRAM_API_KEY or User Secrets.",
             Recursive = true
         };
 
@@ -491,7 +491,7 @@ internal static class Program
     {
         var apiKey = commandLineApiKey
                      ?? Environment.GetEnvironmentVariable("IDEOGRAM_API_KEY")
-                     ?? TryReadApiKeyFromAppSettings();
+                     ?? TryReadApiKeyFromUserSecrets();
 
         if (!string.IsNullOrWhiteSpace(apiKey))
         {
@@ -499,83 +499,24 @@ internal static class Program
         }
 
         throw new InvalidOperationException(
-            "Ideogram API key was not found. Provide --api-key, set IDEOGRAM_API_KEY, or add it to appsettings.json.");
+            "Ideogram API key was not found. Provide --api-key, set IDEOGRAM_API_KEY, or configure User Secrets.");
     }
 
-    private static string? TryReadApiKeyFromAppSettings()
+    private static string? TryReadApiKeyFromUserSecrets()
     {
-        foreach (var path in GetAppSettingsCandidatePaths())
+        try
         {
-            if (!File.Exists(path))
-            {
-                continue;
-            }
+            var configuration = new ConfigurationBuilder()
+                .AddUserSecrets(typeof(Program).Assembly, optional: true)
+                .Build();
 
-            try
-            {
-                using var stream = File.OpenRead(path);
-                using var document = JsonDocument.Parse(stream);
-
-                if (TryGetApiKey(document.RootElement, out var apiKey))
-                {
-                    return apiKey;
-                }
-            }
-            catch (JsonException ex)
-            {
-                throw new InvalidOperationException($"Failed to parse appsettings file '{path}': {ex.Message}", ex);
-            }
-            catch (IOException ex)
-            {
-                throw new InvalidOperationException($"Failed to read appsettings file '{path}': {ex.Message}", ex);
-            }
+            var apiKey = configuration["Ideogram:ApiKey"] ?? configuration["IdeogramApiKey"];
+            return string.IsNullOrWhiteSpace(apiKey) ? null : apiKey;
         }
-
-        return null;
-    }
-
-    private static IEnumerable<string> GetAppSettingsCandidatePaths()
-    {
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var currentDirectoryPath = Path.Combine(Directory.GetCurrentDirectory(), "appsettings.json");
-        if (seen.Add(currentDirectoryPath))
+        catch (Exception ex) when (ex is InvalidOperationException or IOException)
         {
-            yield return currentDirectoryPath;
+            throw new InvalidOperationException($"Failed to read User Secrets: {ex.Message}", ex);
         }
-
-        var baseDirectoryPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
-        if (seen.Add(baseDirectoryPath))
-        {
-            yield return baseDirectoryPath;
-        }
-    }
-
-    private static bool TryGetApiKey(JsonElement root, out string? apiKey)
-    {
-        apiKey = null;
-
-        if (root.ValueKind != JsonValueKind.Object)
-        {
-            return false;
-        }
-
-        if (root.TryGetProperty("Ideogram", out var ideogramSection) &&
-            ideogramSection.ValueKind == JsonValueKind.Object &&
-            ideogramSection.TryGetProperty("ApiKey", out var nestedApiKey) &&
-            nestedApiKey.ValueKind == JsonValueKind.String)
-        {
-            apiKey = nestedApiKey.GetString();
-            return !string.IsNullOrWhiteSpace(apiKey);
-        }
-
-        if (root.TryGetProperty("IdeogramApiKey", out var rootApiKey) &&
-            rootApiKey.ValueKind == JsonValueKind.String)
-        {
-            apiKey = rootApiKey.GetString();
-            return !string.IsNullOrWhiteSpace(apiKey);
-        }
-
-        return false;
     }
 
     private static async Task RunInteractiveMenuAsync(IdeogramClient client, string outputDirectory, CancellationToken cancellationToken)
