@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace Ideogram.Client.Internal;
+namespace A2G.Ideogram.Client.Internal;
 
 internal static class JsonDefaults
 {

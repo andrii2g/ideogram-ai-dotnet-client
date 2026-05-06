@@ -48,9 +48,9 @@ If none of those sources provides a key, the console app exits with an error.
 ## Minimal library usage
 
 ```csharp
-using Ideogram.Client;
-using Ideogram.Client.Constants;
-using Ideogram.Client.Models;
+using A2G.Ideogram.Client;
+using A2G.Ideogram.Client.Constants;
+using A2G.Ideogram.Client.Models;
 
 var client = new IdeogramClient(new IdeogramClientOptions
 {
@@ -67,6 +67,22 @@ var response = await client.GenerateAsync(new GenerateRequest
 
 await client.DownloadImagesAsync(response, "outputs", "generate");
 ```
+
+## Dependency injection
+
+The library can be registered with `IHttpClientFactory`:
+
+```csharp
+using A2G.Ideogram.Client;
+
+builder.Services.AddIdeogramClient(new IdeogramClientOptions
+{
+    ApiKey = builder.Configuration["Ideogram:ApiKey"]
+        ?? throw new InvalidOperationException("Ideogram:ApiKey is not configured.")
+});
+```
+
+You can inject either `IIdeogramClient` or `IdeogramClient` into your services. The registration creates isolated named `HttpClient` instances for API and download traffic and keeps the existing credential-safety split intact.
 
 Inpaint example:
 
@@ -113,4 +129,3 @@ dotnet run --project samples/Ideogram.Client.Console -- inpaint \
 - Ideogram image URLs expire, so download them immediately when needed.
 - All v3 methods use `multipart/form-data`.
 - The transparent endpoint does not support `FLASH`.
-- No tests are included by request.

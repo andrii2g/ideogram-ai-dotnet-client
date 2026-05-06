@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace Ideogram.Client.Models;
+namespace A2G.Ideogram.Client.Models;
 
 public sealed class IdeogramErrorResponse
 {

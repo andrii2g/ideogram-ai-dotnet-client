@@ -1,9 +1,9 @@
-using Ideogram.Client.Constants;
-using Ideogram.Client.Internal;
-using Ideogram.Client.Models;
+using A2G.Ideogram.Client.Constants;
+using A2G.Ideogram.Client.Internal;
+using A2G.Ideogram.Client.Models;
 using System.Text.RegularExpressions;
 
-namespace Ideogram.Client.Validation;
+namespace A2G.Ideogram.Client.Validation;
 
 internal static partial class RequestValidator
 {

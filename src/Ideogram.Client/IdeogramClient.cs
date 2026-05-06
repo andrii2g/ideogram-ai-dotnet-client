@@ -1,12 +1,12 @@
-using Ideogram.Client.Internal;
-using Ideogram.Client.Models;
-using Ideogram.Client.Validation;
+using A2G.Ideogram.Client.Internal;
+using A2G.Ideogram.Client.Models;
+using A2G.Ideogram.Client.Validation;
 using System.Globalization;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text.Json;
 
-namespace Ideogram.Client;
+namespace A2G.Ideogram.Client;
 
 public sealed class IdeogramClient : IIdeogramClient, IDisposable
 {

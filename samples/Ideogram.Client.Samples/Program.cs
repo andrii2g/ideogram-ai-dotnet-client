@@ -1,15 +1,18 @@
-using Ideogram.Client;
-using Ideogram.Client.Constants;
-using Ideogram.Client.Models;
+using A2G.Ideogram.Client.Constants;
+using A2G.Ideogram.Client.Models;
 using Microsoft.Extensions.Configuration;
 using System.Text.Json;
 
-namespace Ideogram.Client.Samples;
+namespace A2G.Ideogram.Client.Samples;
 
 internal static class Program
 {
+    /// <summary>
+    /// manually change the sample scenario to run different samples. 
+    /// </summary>
     private const SampleScenario SelectedSample = SampleScenario.Generate;
-    private static readonly bool DownloadReturnedImages = false;
+    // set to true to automatically download returned images to the output directory
+    private static readonly bool DownloadReturnedImages = true;
 
     private static async Task Main()
     {
@@ -62,7 +65,7 @@ internal static class Program
             Prompt = "A cinematic product photo of a ceramic coffee mug on a wooden desk.",
             RenderingSpeed = IdeogramRenderingSpeed.Turbo,
             NumImages = 1,
-            StyleType = IdeogramStyleTypes.General,
+            StyleType = IdeogramStyleTypes.Realistic,
             AspectRatio = IdeogramAspectRatios.Ratio1x1
         });
     }

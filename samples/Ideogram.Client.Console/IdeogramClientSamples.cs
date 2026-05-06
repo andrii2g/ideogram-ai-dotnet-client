@@ -1,7 +1,7 @@
-using Ideogram.Client.Constants;
-using Ideogram.Client.Models;
+using A2G.Ideogram.Client.Constants;
+using A2G.Ideogram.Client.Models;
 
-namespace Ideogram.Client.ConsoleApp;
+namespace A2G.Ideogram.Client.ConsoleApp;
 
 internal static class IdeogramClientSamples
 {

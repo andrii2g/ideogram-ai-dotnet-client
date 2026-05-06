@@ -1,10 +1,11 @@
-using Ideogram.Client.Constants;
-using Ideogram.Client.Models;
+using A2G.Ideogram.Client;
+using A2G.Ideogram.Client.Constants;
+using A2G.Ideogram.Client.Models;
 using Microsoft.Extensions.Configuration;
 using System.CommandLine;
 using System.Globalization;
 
-namespace Ideogram.Client.ConsoleApp;
+namespace A2G.Ideogram.Client.ConsoleApp;
 
 internal static class Program
 {

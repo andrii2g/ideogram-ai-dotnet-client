@@ -1,6 +1,6 @@
 using System.Net;
 
-namespace Ideogram.Client;
+namespace A2G.Ideogram.Client;
 
 public sealed class IdeogramApiException : HttpRequestException
 {

@@ -1,10 +1,10 @@
-using Ideogram.Client.Models;
+using A2G.Ideogram.Client.Models;
 using System.Globalization;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 
-namespace Ideogram.Client.Internal;
+namespace A2G.Ideogram.Client.Internal;
 
 internal static class HttpContentBuilder
 {

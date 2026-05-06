@@ -1,4 +1,4 @@
-namespace Ideogram.Client;
+namespace A2G.Ideogram.Client;
 
 public sealed class IdeogramClientOptions
 {

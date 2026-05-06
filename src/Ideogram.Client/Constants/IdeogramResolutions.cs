@@ -1,4 +1,4 @@
-namespace Ideogram.Client.Constants;
+namespace A2G.Ideogram.Client.Constants;
 
 public static class IdeogramResolutions
 {

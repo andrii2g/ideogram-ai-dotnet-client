@@ -1,4 +1,4 @@
-namespace Ideogram.Client.Internal;
+namespace A2G.Ideogram.Client.Internal;
 
 internal static class MimeTypeDetector
 {

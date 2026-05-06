@@ -1,7 +1,7 @@
 using System.Text.Json;
-using Ideogram.Client.Models;
+using A2G.Ideogram.Client.Models;
 
-namespace Ideogram.Client.ConsoleApp;
+namespace A2G.Ideogram.Client.ConsoleApp;
 
 internal static class OutputWriter
 {

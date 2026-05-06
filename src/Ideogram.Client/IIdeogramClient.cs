@@ -1,6 +1,6 @@
-using Ideogram.Client.Models;
+using A2G.Ideogram.Client.Models;
 
-namespace Ideogram.Client;
+namespace A2G.Ideogram.Client;
 
 public interface IIdeogramClient
 {
