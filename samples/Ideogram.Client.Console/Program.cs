@@ -1,5 +1,6 @@
 using Ideogram.Client.Constants;
 using Ideogram.Client.Models;
+using System.CommandLine;
 using System.Globalization;
 
 namespace Ideogram.Client.ConsoleApp;
@@ -8,53 +9,486 @@ internal static class Program
 {
     private static async Task<int> Main(string[] args)
     {
-        var parsedArgs = SimpleArgsParser.Parse(args, out var parseError);
+        var rootCommand = BuildRootCommand();
+        return await rootCommand.Parse(args).InvokeAsync().ConfigureAwait(false);
+    }
 
-        if (parsedArgs?.ShowHelp == true)
+    private static RootCommand BuildRootCommand()
+    {
+        var apiKeyOption = new Option<string?>("--api-key")
         {
-            OutputWriter.PrintHelp();
+            Description = "Ideogram API key. Falls back to IDEOGRAM_API_KEY or an interactive prompt.",
+            Recursive = true
+        };
+
+        var rootCommand = new RootCommand("Ideogram API v3 manual console")
+        {
+            Options =
+            {
+                apiKeyOption
+            }
+        };
+
+        rootCommand.SetAction(async (parseResult, cancellationToken) =>
+        {
+            var outputDirectory = OutputWriter.CreateOutputDirectory();
+
+            using var client = new IdeogramClient(new IdeogramClientOptions
+            {
+                ApiKey = ResolveApiKey(parseResult.GetValue(apiKeyOption))
+            });
+
+            await RunInteractiveMenuAsync(client, outputDirectory, cancellationToken).ConfigureAwait(false);
             return 0;
-        }
-
-        if (parseError is not null)
-        {
-            System.Console.WriteLine(parseError);
-            System.Console.WriteLine();
-            OutputWriter.PrintHelp();
-        }
-
-        var outputDirectory = OutputWriter.CreateOutputDirectory();
-        var apiKey = ResolveApiKey(parsedArgs);
-
-        using var client = new IdeogramClient(new IdeogramClientOptions
-        {
-            ApiKey = apiKey
         });
 
-        if (parsedArgs?.CommandName is not null)
+        rootCommand.Subcommands.Add(CreateGenerateCommand(apiKeyOption));
+        rootCommand.Subcommands.Add(CreateGenerateTransparentCommand(apiKeyOption));
+        rootCommand.Subcommands.Add(CreateInpaintCommand(apiKeyOption));
+        rootCommand.Subcommands.Add(CreateRemixCommand(apiKeyOption));
+        rootCommand.Subcommands.Add(CreateReframeCommand(apiKeyOption));
+        rootCommand.Subcommands.Add(CreateReplaceBackgroundCommand(apiKeyOption));
+        rootCommand.Subcommands.Add(CreateDownloadCommand(apiKeyOption));
+
+        return rootCommand;
+    }
+
+    private static Command CreateGenerateCommand(Option<string?> apiKeyOption)
+    {
+        var promptOption = CreateRequiredStringOption("--prompt", "Prompt text.");
+        var seedOption = CreateIntOption("--seed", "Seed value.");
+        var resolutionOption = CreateStringOption("--resolution", "Resolution such as 1024x1024.");
+        var aspectRatioOption = CreateStringOption("--aspect-ratio", "Aspect ratio such as 1x1.");
+        var renderingSpeedOption = CreateStringOption("--rendering-speed", "Rendering speed.");
+        var magicPromptOption = CreateStringOption("--magic-prompt", "Magic prompt option.");
+        var negativePromptOption = CreateStringOption("--negative-prompt", "Negative prompt.");
+        var numImagesOption = CreateIntOption("--num-images", "Number of images.");
+        var styleTypeOption = CreateStringOption("--style-type", "Style type.");
+        var stylePresetOption = CreateStringOption("--style-preset", "Style preset.");
+        var customModelUriOption = CreateStringOption("--custom-model-uri", "Custom model URI.");
+        var styleCodesOption = CreateStringOption("--style-codes", "Semicolon-separated style codes.");
+        var colorPaletteOption = CreateStringOption("--color-palette", "Color palette preset.");
+        var colorPaletteMembersOption = CreateStringOption("--color-palette-members", "Semicolon-separated #RRGGBB[:weight] members.");
+        var styleReferenceImagesOption = CreateStringOption("--style-reference-images", "Semicolon-separated style reference image paths.");
+        var characterReferenceImagesOption = CreateStringOption("--character-reference-images", "Semicolon-separated character reference image paths.");
+        var characterReferenceImageMasksOption = CreateStringOption("--character-reference-image-masks", "Semicolon-separated character reference mask paths.");
+        var downloadOption = CreateDownloadOption();
+
+        var command = new Command("generate", "Generate images.");
+        command.Options.Add(promptOption);
+        command.Options.Add(seedOption);
+        command.Options.Add(resolutionOption);
+        command.Options.Add(aspectRatioOption);
+        command.Options.Add(renderingSpeedOption);
+        command.Options.Add(magicPromptOption);
+        command.Options.Add(negativePromptOption);
+        command.Options.Add(numImagesOption);
+        command.Options.Add(styleTypeOption);
+        command.Options.Add(stylePresetOption);
+        command.Options.Add(customModelUriOption);
+        command.Options.Add(styleCodesOption);
+        command.Options.Add(colorPaletteOption);
+        command.Options.Add(colorPaletteMembersOption);
+        command.Options.Add(styleReferenceImagesOption);
+        command.Options.Add(characterReferenceImagesOption);
+        command.Options.Add(characterReferenceImageMasksOption);
+        command.Options.Add(downloadOption);
+
+        command.SetAction((parseResult, cancellationToken) => ExecuteCommandAsync(
+            parseResult,
+            apiKeyOption,
+            static (client, request, token) => client.GenerateAsync(request, token),
+            new GenerateRequest
+            {
+                Prompt = parseResult.GetValue(promptOption)!,
+                Seed = parseResult.GetValue(seedOption),
+                Resolution = parseResult.GetValue(resolutionOption),
+                AspectRatio = parseResult.GetValue(aspectRatioOption),
+                RenderingSpeed = parseResult.GetValue(renderingSpeedOption),
+                MagicPrompt = parseResult.GetValue(magicPromptOption),
+                NegativePrompt = parseResult.GetValue(negativePromptOption),
+                NumImages = parseResult.GetValue(numImagesOption),
+                StyleType = parseResult.GetValue(styleTypeOption),
+                StylePreset = parseResult.GetValue(stylePresetOption),
+                CustomModelUri = parseResult.GetValue(customModelUriOption),
+                StyleCodes = ParseStringList(parseResult.GetValue(styleCodesOption)),
+                ColorPalette = ParseColorPalette(parseResult.GetValue(colorPaletteOption), parseResult.GetValue(colorPaletteMembersOption)),
+                StyleReferenceImages = ParseImageFiles(parseResult.GetValue(styleReferenceImagesOption)),
+                CharacterReferenceImages = ParseImageFiles(parseResult.GetValue(characterReferenceImagesOption)),
+                CharacterReferenceImageMasks = ParseImageFiles(parseResult.GetValue(characterReferenceImageMasksOption))
+            },
+            "generate",
+            parseResult.GetValue(downloadOption),
+            cancellationToken));
+
+        return command;
+    }
+
+    private static Command CreateGenerateTransparentCommand(Option<string?> apiKeyOption)
+    {
+        var promptOption = CreateRequiredStringOption("--prompt", "Prompt text.");
+        var seedOption = CreateIntOption("--seed", "Seed value.");
+        var upscaleFactorOption = CreateStringOption("--upscale-factor", "Upscale factor.");
+        var aspectRatioOption = CreateStringOption("--aspect-ratio", "Aspect ratio.");
+        var renderingSpeedOption = CreateStringOption("--rendering-speed", "Rendering speed.");
+        var magicPromptOption = CreateStringOption("--magic-prompt", "Magic prompt option.");
+        var negativePromptOption = CreateStringOption("--negative-prompt", "Negative prompt.");
+        var numImagesOption = CreateIntOption("--num-images", "Number of images.");
+        var downloadOption = CreateDownloadOption();
+
+        var command = new Command("transparent", "Generate transparent-background images.");
+        command.Options.Add(promptOption);
+        command.Options.Add(seedOption);
+        command.Options.Add(upscaleFactorOption);
+        command.Options.Add(aspectRatioOption);
+        command.Options.Add(renderingSpeedOption);
+        command.Options.Add(magicPromptOption);
+        command.Options.Add(negativePromptOption);
+        command.Options.Add(numImagesOption);
+        command.Options.Add(downloadOption);
+
+        command.SetAction((parseResult, cancellationToken) => ExecuteCommandAsync(
+            parseResult,
+            apiKeyOption,
+            static (client, request, token) => client.GenerateTransparentAsync(request, token),
+            new GenerateTransparentRequest
+            {
+                Prompt = parseResult.GetValue(promptOption)!,
+                Seed = parseResult.GetValue(seedOption),
+                UpscaleFactor = parseResult.GetValue(upscaleFactorOption),
+                AspectRatio = parseResult.GetValue(aspectRatioOption),
+                RenderingSpeed = parseResult.GetValue(renderingSpeedOption),
+                MagicPrompt = parseResult.GetValue(magicPromptOption),
+                NegativePrompt = parseResult.GetValue(negativePromptOption),
+                NumImages = parseResult.GetValue(numImagesOption)
+            },
+            "transparent",
+            parseResult.GetValue(downloadOption),
+            cancellationToken));
+
+        return command;
+    }
+
+    private static Command CreateInpaintCommand(Option<string?> apiKeyOption)
+    {
+        var imageOption = CreateRequiredStringOption("--image", "Input image path.");
+        var maskOption = CreateRequiredStringOption("--mask", "Mask image path.");
+        var promptOption = CreateRequiredStringOption("--prompt", "Prompt text.");
+        var magicPromptOption = CreateStringOption("--magic-prompt", "Magic prompt option.");
+        var numImagesOption = CreateIntOption("--num-images", "Number of images.");
+        var seedOption = CreateIntOption("--seed", "Seed value.");
+        var renderingSpeedOption = CreateStringOption("--rendering-speed", "Rendering speed.");
+        var styleTypeOption = CreateStringOption("--style-type", "Style type.");
+        var stylePresetOption = CreateStringOption("--style-preset", "Style preset.");
+        var colorPaletteOption = CreateStringOption("--color-palette", "Color palette preset.");
+        var colorPaletteMembersOption = CreateStringOption("--color-palette-members", "Semicolon-separated #RRGGBB[:weight] members.");
+        var styleCodesOption = CreateStringOption("--style-codes", "Semicolon-separated style codes.");
+        var styleReferenceImagesOption = CreateStringOption("--style-reference-images", "Semicolon-separated style reference image paths.");
+        var characterReferenceImagesOption = CreateStringOption("--character-reference-images", "Semicolon-separated character reference image paths.");
+        var characterReferenceImageMasksOption = CreateStringOption("--character-reference-image-masks", "Semicolon-separated character reference mask paths.");
+        var downloadOption = CreateDownloadOption();
+
+        var command = new Command("inpaint", "Inpaint an image.");
+        command.Options.Add(imageOption);
+        command.Options.Add(maskOption);
+        command.Options.Add(promptOption);
+        command.Options.Add(magicPromptOption);
+        command.Options.Add(numImagesOption);
+        command.Options.Add(seedOption);
+        command.Options.Add(renderingSpeedOption);
+        command.Options.Add(styleTypeOption);
+        command.Options.Add(stylePresetOption);
+        command.Options.Add(colorPaletteOption);
+        command.Options.Add(colorPaletteMembersOption);
+        command.Options.Add(styleCodesOption);
+        command.Options.Add(styleReferenceImagesOption);
+        command.Options.Add(characterReferenceImagesOption);
+        command.Options.Add(characterReferenceImageMasksOption);
+        command.Options.Add(downloadOption);
+
+        command.SetAction((parseResult, cancellationToken) => ExecuteCommandAsync(
+            parseResult,
+            apiKeyOption,
+            static (client, request, token) => client.InpaintAsync(request, token),
+            new InpaintRequest
+            {
+                Image = IdeogramFile.FromPath(parseResult.GetValue(imageOption)!),
+                Mask = IdeogramFile.FromPath(parseResult.GetValue(maskOption)!),
+                Prompt = parseResult.GetValue(promptOption)!,
+                MagicPrompt = parseResult.GetValue(magicPromptOption),
+                NumImages = parseResult.GetValue(numImagesOption),
+                Seed = parseResult.GetValue(seedOption),
+                RenderingSpeed = parseResult.GetValue(renderingSpeedOption),
+                StyleType = parseResult.GetValue(styleTypeOption),
+                StylePreset = parseResult.GetValue(stylePresetOption),
+                ColorPalette = ParseColorPalette(parseResult.GetValue(colorPaletteOption), parseResult.GetValue(colorPaletteMembersOption)),
+                StyleCodes = ParseStringList(parseResult.GetValue(styleCodesOption)),
+                StyleReferenceImages = ParseImageFiles(parseResult.GetValue(styleReferenceImagesOption)),
+                CharacterReferenceImages = ParseImageFiles(parseResult.GetValue(characterReferenceImagesOption)),
+                CharacterReferenceImageMasks = ParseImageFiles(parseResult.GetValue(characterReferenceImageMasksOption))
+            },
+            "inpaint",
+            parseResult.GetValue(downloadOption),
+            cancellationToken));
+
+        return command;
+    }
+
+    private static Command CreateRemixCommand(Option<string?> apiKeyOption)
+    {
+        var imageOption = CreateRequiredStringOption("--image", "Input image path.");
+        var promptOption = CreateRequiredStringOption("--prompt", "Prompt text.");
+        var imageWeightOption = CreateIntOption("--image-weight", "Image weight.");
+        var seedOption = CreateIntOption("--seed", "Seed value.");
+        var resolutionOption = CreateStringOption("--resolution", "Resolution.");
+        var aspectRatioOption = CreateStringOption("--aspect-ratio", "Aspect ratio.");
+        var renderingSpeedOption = CreateStringOption("--rendering-speed", "Rendering speed.");
+        var magicPromptOption = CreateStringOption("--magic-prompt", "Magic prompt option.");
+        var negativePromptOption = CreateStringOption("--negative-prompt", "Negative prompt.");
+        var numImagesOption = CreateIntOption("--num-images", "Number of images.");
+        var colorPaletteOption = CreateStringOption("--color-palette", "Color palette preset.");
+        var colorPaletteMembersOption = CreateStringOption("--color-palette-members", "Semicolon-separated #RRGGBB[:weight] members.");
+        var styleCodesOption = CreateStringOption("--style-codes", "Semicolon-separated style codes.");
+        var styleTypeOption = CreateStringOption("--style-type", "Style type.");
+        var stylePresetOption = CreateStringOption("--style-preset", "Style preset.");
+        var styleReferenceImagesOption = CreateStringOption("--style-reference-images", "Semicolon-separated style reference image paths.");
+        var characterReferenceImagesOption = CreateStringOption("--character-reference-images", "Semicolon-separated character reference image paths.");
+        var characterReferenceImageMasksOption = CreateStringOption("--character-reference-image-masks", "Semicolon-separated character reference mask paths.");
+        var downloadOption = CreateDownloadOption();
+
+        var command = new Command("remix", "Remix an image.");
+        command.Options.Add(imageOption);
+        command.Options.Add(promptOption);
+        command.Options.Add(imageWeightOption);
+        command.Options.Add(seedOption);
+        command.Options.Add(resolutionOption);
+        command.Options.Add(aspectRatioOption);
+        command.Options.Add(renderingSpeedOption);
+        command.Options.Add(magicPromptOption);
+        command.Options.Add(negativePromptOption);
+        command.Options.Add(numImagesOption);
+        command.Options.Add(colorPaletteOption);
+        command.Options.Add(colorPaletteMembersOption);
+        command.Options.Add(styleCodesOption);
+        command.Options.Add(styleTypeOption);
+        command.Options.Add(stylePresetOption);
+        command.Options.Add(styleReferenceImagesOption);
+        command.Options.Add(characterReferenceImagesOption);
+        command.Options.Add(characterReferenceImageMasksOption);
+        command.Options.Add(downloadOption);
+
+        command.SetAction((parseResult, cancellationToken) => ExecuteCommandAsync(
+            parseResult,
+            apiKeyOption,
+            static (client, request, token) => client.RemixAsync(request, token),
+            new RemixRequest
+            {
+                Image = IdeogramFile.FromPath(parseResult.GetValue(imageOption)!),
+                Prompt = parseResult.GetValue(promptOption)!,
+                ImageWeight = parseResult.GetValue(imageWeightOption),
+                Seed = parseResult.GetValue(seedOption),
+                Resolution = parseResult.GetValue(resolutionOption),
+                AspectRatio = parseResult.GetValue(aspectRatioOption),
+                RenderingSpeed = parseResult.GetValue(renderingSpeedOption),
+                MagicPrompt = parseResult.GetValue(magicPromptOption),
+                NegativePrompt = parseResult.GetValue(negativePromptOption),
+                NumImages = parseResult.GetValue(numImagesOption),
+                ColorPalette = ParseColorPalette(parseResult.GetValue(colorPaletteOption), parseResult.GetValue(colorPaletteMembersOption)),
+                StyleCodes = ParseStringList(parseResult.GetValue(styleCodesOption)),
+                StyleType = parseResult.GetValue(styleTypeOption),
+                StylePreset = parseResult.GetValue(stylePresetOption),
+                StyleReferenceImages = ParseImageFiles(parseResult.GetValue(styleReferenceImagesOption)),
+                CharacterReferenceImages = ParseImageFiles(parseResult.GetValue(characterReferenceImagesOption)),
+                CharacterReferenceImageMasks = ParseImageFiles(parseResult.GetValue(characterReferenceImageMasksOption))
+            },
+            "remix",
+            parseResult.GetValue(downloadOption),
+            cancellationToken));
+
+        return command;
+    }
+
+    private static Command CreateReframeCommand(Option<string?> apiKeyOption)
+    {
+        var imageOption = CreateRequiredStringOption("--image", "Input image path.");
+        var resolutionOption = CreateRequiredStringOption("--resolution", "Target resolution.");
+        var numImagesOption = CreateIntOption("--num-images", "Number of images.");
+        var seedOption = CreateIntOption("--seed", "Seed value.");
+        var renderingSpeedOption = CreateStringOption("--rendering-speed", "Rendering speed.");
+        var stylePresetOption = CreateStringOption("--style-preset", "Style preset.");
+        var colorPaletteOption = CreateStringOption("--color-palette", "Color palette preset.");
+        var colorPaletteMembersOption = CreateStringOption("--color-palette-members", "Semicolon-separated #RRGGBB[:weight] members.");
+        var styleCodesOption = CreateStringOption("--style-codes", "Semicolon-separated style codes.");
+        var styleReferenceImagesOption = CreateStringOption("--style-reference-images", "Semicolon-separated style reference image paths.");
+        var downloadOption = CreateDownloadOption();
+
+        var command = new Command("reframe", "Reframe an image.");
+        command.Options.Add(imageOption);
+        command.Options.Add(resolutionOption);
+        command.Options.Add(numImagesOption);
+        command.Options.Add(seedOption);
+        command.Options.Add(renderingSpeedOption);
+        command.Options.Add(stylePresetOption);
+        command.Options.Add(colorPaletteOption);
+        command.Options.Add(colorPaletteMembersOption);
+        command.Options.Add(styleCodesOption);
+        command.Options.Add(styleReferenceImagesOption);
+        command.Options.Add(downloadOption);
+
+        command.SetAction((parseResult, cancellationToken) => ExecuteCommandAsync(
+            parseResult,
+            apiKeyOption,
+            static (client, request, token) => client.ReframeAsync(request, token),
+            new ReframeRequest
+            {
+                Image = IdeogramFile.FromPath(parseResult.GetValue(imageOption)!),
+                Resolution = parseResult.GetValue(resolutionOption)!,
+                NumImages = parseResult.GetValue(numImagesOption),
+                Seed = parseResult.GetValue(seedOption),
+                RenderingSpeed = parseResult.GetValue(renderingSpeedOption),
+                StylePreset = parseResult.GetValue(stylePresetOption),
+                ColorPalette = ParseColorPalette(parseResult.GetValue(colorPaletteOption), parseResult.GetValue(colorPaletteMembersOption)),
+                StyleCodes = ParseStringList(parseResult.GetValue(styleCodesOption)),
+                StyleReferenceImages = ParseImageFiles(parseResult.GetValue(styleReferenceImagesOption))
+            },
+            "reframe",
+            parseResult.GetValue(downloadOption),
+            cancellationToken));
+
+        return command;
+    }
+
+    private static Command CreateReplaceBackgroundCommand(Option<string?> apiKeyOption)
+    {
+        var imageOption = CreateRequiredStringOption("--image", "Input image path.");
+        var promptOption = CreateRequiredStringOption("--prompt", "Prompt text.");
+        var magicPromptOption = CreateStringOption("--magic-prompt", "Magic prompt option.");
+        var numImagesOption = CreateIntOption("--num-images", "Number of images.");
+        var seedOption = CreateIntOption("--seed", "Seed value.");
+        var renderingSpeedOption = CreateStringOption("--rendering-speed", "Rendering speed.");
+        var stylePresetOption = CreateStringOption("--style-preset", "Style preset.");
+        var colorPaletteOption = CreateStringOption("--color-palette", "Color palette preset.");
+        var colorPaletteMembersOption = CreateStringOption("--color-palette-members", "Semicolon-separated #RRGGBB[:weight] members.");
+        var styleCodesOption = CreateStringOption("--style-codes", "Semicolon-separated style codes.");
+        var styleReferenceImagesOption = CreateStringOption("--style-reference-images", "Semicolon-separated style reference image paths.");
+        var downloadOption = CreateDownloadOption();
+
+        var command = new Command("replace-background", "Replace an image background.");
+        command.Options.Add(imageOption);
+        command.Options.Add(promptOption);
+        command.Options.Add(magicPromptOption);
+        command.Options.Add(numImagesOption);
+        command.Options.Add(seedOption);
+        command.Options.Add(renderingSpeedOption);
+        command.Options.Add(stylePresetOption);
+        command.Options.Add(colorPaletteOption);
+        command.Options.Add(colorPaletteMembersOption);
+        command.Options.Add(styleCodesOption);
+        command.Options.Add(styleReferenceImagesOption);
+        command.Options.Add(downloadOption);
+
+        command.SetAction((parseResult, cancellationToken) => ExecuteCommandAsync(
+            parseResult,
+            apiKeyOption,
+            static (client, request, token) => client.ReplaceBackgroundAsync(request, token),
+            new ReplaceBackgroundRequest
+            {
+                Image = IdeogramFile.FromPath(parseResult.GetValue(imageOption)!),
+                Prompt = parseResult.GetValue(promptOption)!,
+                MagicPrompt = parseResult.GetValue(magicPromptOption),
+                NumImages = parseResult.GetValue(numImagesOption),
+                Seed = parseResult.GetValue(seedOption),
+                RenderingSpeed = parseResult.GetValue(renderingSpeedOption),
+                StylePreset = parseResult.GetValue(stylePresetOption),
+                ColorPalette = ParseColorPalette(parseResult.GetValue(colorPaletteOption), parseResult.GetValue(colorPaletteMembersOption)),
+                StyleCodes = ParseStringList(parseResult.GetValue(styleCodesOption)),
+                StyleReferenceImages = ParseImageFiles(parseResult.GetValue(styleReferenceImagesOption))
+            },
+            "replace-background",
+            parseResult.GetValue(downloadOption),
+            cancellationToken));
+
+        return command;
+    }
+
+    private static Command CreateDownloadCommand(Option<string?> apiKeyOption)
+    {
+        var urlOption = CreateRequiredStringOption("--url", "Image URL to download.");
+        var outputOption = CreateStringOption("--output", "Explicit output path.");
+
+        var command = new Command("download", "Download a single image URL.");
+        command.Options.Add(urlOption);
+        command.Options.Add(outputOption);
+
+        command.SetAction(async (parseResult, cancellationToken) =>
         {
+            var outputDirectory = OutputWriter.CreateOutputDirectory();
+            var imageUrl = parseResult.GetValue(urlOption)!;
+            var outputPath = parseResult.GetValue(outputOption) ??
+                             Path.Combine(outputDirectory, $"downloaded.{DetermineExtensionToken(imageUrl)}");
+
+            using var client = new IdeogramClient(new IdeogramClientOptions
+            {
+                ApiKey = ResolveApiKey(parseResult.GetValue(apiKeyOption))
+            });
+
             try
             {
-                await RunCommandLineAsync(client, parsedArgs, outputDirectory).ConfigureAwait(false);
+                var savedPath = await client.DownloadImageAsync(imageUrl, outputPath, cancellationToken).ConfigureAwait(false);
+                OutputWriter.PrintSavedImagePaths([savedPath]);
                 return 0;
             }
             catch (Exception ex)
             {
-                System.Console.WriteLine($"Command-line execution failed: {ex.Message}");
-                System.Console.WriteLine();
-                OutputWriter.PrintHelp();
-                System.Console.WriteLine("Falling back to interactive menu.");
-                System.Console.WriteLine();
+                System.Console.WriteLine(ex.Message);
+                return 1;
             }
-        }
+        });
 
-        await RunInteractiveMenuAsync(client, outputDirectory).ConfigureAwait(false);
-        return 0;
+        return command;
     }
 
-    private static string ResolveApiKey(ManualRunOptions? parsedArgs)
+    private static async Task<int> ExecuteCommandAsync<TRequest>(
+        ParseResult parseResult,
+        Option<string?> apiKeyOption,
+        Func<IdeogramClient, TRequest, CancellationToken, Task<IdeogramResponse>> sendAsync,
+        TRequest request,
+        string methodName,
+        bool shouldDownload,
+        CancellationToken cancellationToken)
     {
-        var apiKey = parsedArgs?.ApiKey ?? Environment.GetEnvironmentVariable("IDEOGRAM_API_KEY");
+        var outputDirectory = OutputWriter.CreateOutputDirectory();
+
+        using var client = new IdeogramClient(new IdeogramClientOptions
+        {
+            ApiKey = ResolveApiKey(parseResult.GetValue(apiKeyOption))
+        });
+
+        try
+        {
+            var response = await sendAsync(client, request, cancellationToken).ConfigureAwait(false);
+            OutputWriter.PrintResponseSummary(response);
+            var responsePath = OutputWriter.SaveResponseJson(outputDirectory, methodName, response);
+            OutputWriter.PrintSavedResponsePath(responsePath);
+
+            if (shouldDownload)
+            {
+                var savedImages = await client.DownloadImagesAsync(response, outputDirectory, methodName, cancellationToken).ConfigureAwait(false);
+                OutputWriter.PrintSavedImagePaths(savedImages);
+            }
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            System.Console.WriteLine(ex.Message);
+            return 1;
+        }
+    }
+
+    private static string ResolveApiKey(string? commandLineApiKey)
+    {
+        var apiKey = commandLineApiKey ?? Environment.GetEnvironmentVariable("IDEOGRAM_API_KEY");
         if (!string.IsNullOrWhiteSpace(apiKey))
         {
             return apiKey;
@@ -72,7 +506,7 @@ internal static class Program
         }
     }
 
-    private static async Task RunInteractiveMenuAsync(IdeogramClient client, string outputDirectory)
+    private static async Task RunInteractiveMenuAsync(IdeogramClient client, string outputDirectory, CancellationToken cancellationToken)
     {
         while (true)
         {
@@ -100,17 +534,17 @@ internal static class Program
                 case "0":
                     return;
                 case "1":
-                    await ExecuteGenerateInteractiveAsync(client, outputDirectory).ConfigureAwait(false);
+                    await ExecuteGenerateInteractiveAsync(client, outputDirectory, cancellationToken).ConfigureAwait(false);
                     break;
                 case "2":
-                    await ExecuteGenerateTransparentInteractiveAsync(client, outputDirectory).ConfigureAwait(false);
+                    await ExecuteGenerateTransparentInteractiveAsync(client, outputDirectory, cancellationToken).ConfigureAwait(false);
                     break;
                 case "3":
                     System.Console.WriteLine("Mask must be the same dimensions as the image. Per Ideogram docs, black mask regions indicate the regions to edit.");
-                    await ExecuteInpaintInteractiveAsync(client, outputDirectory).ConfigureAwait(false);
+                    await ExecuteInpaintInteractiveAsync(client, outputDirectory, cancellationToken).ConfigureAwait(false);
                     break;
                 case "4":
-                    await ExecuteRemixInteractiveAsync(client, outputDirectory).ConfigureAwait(false);
+                    await ExecuteRemixInteractiveAsync(client, outputDirectory, cancellationToken).ConfigureAwait(false);
                     break;
                 case "5":
                     System.Console.WriteLine("Common v3 resolutions:");
@@ -121,13 +555,13 @@ internal static class Program
                     System.Console.WriteLine("  800x1280");
                     System.Console.WriteLine("  1536x512");
                     System.Console.WriteLine("  512x1536");
-                    await ExecuteReframeInteractiveAsync(client, outputDirectory).ConfigureAwait(false);
+                    await ExecuteReframeInteractiveAsync(client, outputDirectory, cancellationToken).ConfigureAwait(false);
                     break;
                 case "6":
-                    await ExecuteReplaceBackgroundInteractiveAsync(client, outputDirectory).ConfigureAwait(false);
+                    await ExecuteReplaceBackgroundInteractiveAsync(client, outputDirectory, cancellationToken).ConfigureAwait(false);
                     break;
                 case "7":
-                    await DownloadSingleImageInteractiveAsync(client, outputDirectory).ConfigureAwait(false);
+                    await DownloadSingleImageInteractiveAsync(client, outputDirectory, cancellationToken).ConfigureAwait(false);
                     break;
                 default:
                     System.Console.WriteLine("Unknown selection.");
@@ -138,83 +572,7 @@ internal static class Program
         }
     }
 
-    private static async Task RunCommandLineAsync(IdeogramClient client, ManualRunOptions parsedArgs, string outputDirectory)
-    {
-        switch (parsedArgs.CommandName!.ToLowerInvariant())
-        {
-            case "generate":
-                await ExecuteRequestAsync(
-                    client,
-                    outputDirectory,
-                    "generate",
-                    BuildGenerateFromArgs(parsedArgs),
-                    parsedArgs.Download ?? false,
-                    static (c, request) => c.GenerateAsync(request),
-                    defaultDownloadPrompt: false).ConfigureAwait(false);
-                break;
-            case "transparent":
-                await ExecuteRequestAsync(
-                    client,
-                    outputDirectory,
-                    "transparent",
-                    BuildGenerateTransparentFromArgs(parsedArgs),
-                    parsedArgs.Download ?? false,
-                    static (c, request) => c.GenerateTransparentAsync(request),
-                    defaultDownloadPrompt: false).ConfigureAwait(false);
-                break;
-            case "inpaint":
-                await ExecuteRequestAsync(
-                    client,
-                    outputDirectory,
-                    "inpaint",
-                    BuildInpaintFromArgs(parsedArgs),
-                    parsedArgs.Download ?? false,
-                    static (c, request) => c.InpaintAsync(request),
-                    defaultDownloadPrompt: false).ConfigureAwait(false);
-                break;
-            case "remix":
-                await ExecuteRequestAsync(
-                    client,
-                    outputDirectory,
-                    "remix",
-                    BuildRemixFromArgs(parsedArgs),
-                    parsedArgs.Download ?? false,
-                    static (c, request) => c.RemixAsync(request),
-                    defaultDownloadPrompt: false).ConfigureAwait(false);
-                break;
-            case "reframe":
-                await ExecuteRequestAsync(
-                    client,
-                    outputDirectory,
-                    "reframe",
-                    BuildReframeFromArgs(parsedArgs),
-                    parsedArgs.Download ?? false,
-                    static (c, request) => c.ReframeAsync(request),
-                    defaultDownloadPrompt: false).ConfigureAwait(false);
-                break;
-            case "replace-background":
-                await ExecuteRequestAsync(
-                    client,
-                    outputDirectory,
-                    "replace-background",
-                    BuildReplaceBackgroundFromArgs(parsedArgs),
-                    parsedArgs.Download ?? false,
-                    static (c, request) => c.ReplaceBackgroundAsync(request),
-                    defaultDownloadPrompt: false).ConfigureAwait(false);
-                break;
-            case "download":
-                var url = RequireArg(parsedArgs, "url");
-                var outputPath = SimpleArgsParser.GetValue(parsedArgs, "output") ??
-                                 Path.Combine(outputDirectory, $"downloaded.{DetermineExtensionToken(url)}");
-                var savedPath = await client.DownloadImageAsync(url, outputPath).ConfigureAwait(false);
-                OutputWriter.PrintSavedImagePaths([savedPath]);
-                break;
-            default:
-                throw new ArgumentException($"Unknown command '{parsedArgs.CommandName}'.");
-        }
-    }
-
-    private static async Task ExecuteGenerateInteractiveAsync(IdeogramClient client, string outputDirectory)
+    private static async Task ExecuteGenerateInteractiveAsync(IdeogramClient client, string outputDirectory, CancellationToken cancellationToken)
     {
         var request = new GenerateRequest
         {
@@ -236,17 +594,16 @@ internal static class Program
             CharacterReferenceImageMasks = ConsolePrompts.OptionalImageFiles("Character reference image masks")
         };
 
-        await ExecuteRequestAsync(
+        await ExecuteInteractiveRequestAsync(
             client,
             outputDirectory,
             "generate",
             request,
-            shouldDownload: false,
-            static (c, model) => c.GenerateAsync(model),
-            defaultDownloadPrompt: true).ConfigureAwait(false);
+            static (c, model, token) => c.GenerateAsync(model, token),
+            cancellationToken).ConfigureAwait(false);
     }
 
-    private static async Task ExecuteGenerateTransparentInteractiveAsync(IdeogramClient client, string outputDirectory)
+    private static async Task ExecuteGenerateTransparentInteractiveAsync(IdeogramClient client, string outputDirectory, CancellationToken cancellationToken)
     {
         var request = new GenerateTransparentRequest
         {
@@ -260,17 +617,16 @@ internal static class Program
             NumImages = ConsolePrompts.OptionalInt("Num images", 1, 1, 8)
         };
 
-        await ExecuteRequestAsync(
+        await ExecuteInteractiveRequestAsync(
             client,
             outputDirectory,
             "transparent",
             request,
-            shouldDownload: false,
-            static (c, model) => c.GenerateTransparentAsync(model),
-            defaultDownloadPrompt: true).ConfigureAwait(false);
+            static (c, model, token) => c.GenerateTransparentAsync(model, token),
+            cancellationToken).ConfigureAwait(false);
     }
 
-    private static async Task ExecuteInpaintInteractiveAsync(IdeogramClient client, string outputDirectory)
+    private static async Task ExecuteInpaintInteractiveAsync(IdeogramClient client, string outputDirectory, CancellationToken cancellationToken)
     {
         var request = new InpaintRequest
         {
@@ -290,17 +646,16 @@ internal static class Program
             CharacterReferenceImageMasks = ConsolePrompts.OptionalImageFiles("Character reference image masks")
         };
 
-        await ExecuteRequestAsync(
+        await ExecuteInteractiveRequestAsync(
             client,
             outputDirectory,
             "inpaint",
             request,
-            shouldDownload: false,
-            static (c, model) => c.InpaintAsync(model),
-            defaultDownloadPrompt: true).ConfigureAwait(false);
+            static (c, model, token) => c.InpaintAsync(model, token),
+            cancellationToken).ConfigureAwait(false);
     }
 
-    private static async Task ExecuteRemixInteractiveAsync(IdeogramClient client, string outputDirectory)
+    private static async Task ExecuteRemixInteractiveAsync(IdeogramClient client, string outputDirectory, CancellationToken cancellationToken)
     {
         var request = new RemixRequest
         {
@@ -323,17 +678,16 @@ internal static class Program
             CharacterReferenceImageMasks = ConsolePrompts.OptionalImageFiles("Character reference image masks")
         };
 
-        await ExecuteRequestAsync(
+        await ExecuteInteractiveRequestAsync(
             client,
             outputDirectory,
             "remix",
             request,
-            shouldDownload: false,
-            static (c, model) => c.RemixAsync(model),
-            defaultDownloadPrompt: true).ConfigureAwait(false);
+            static (c, model, token) => c.RemixAsync(model, token),
+            cancellationToken).ConfigureAwait(false);
     }
 
-    private static async Task ExecuteReframeInteractiveAsync(IdeogramClient client, string outputDirectory)
+    private static async Task ExecuteReframeInteractiveAsync(IdeogramClient client, string outputDirectory, CancellationToken cancellationToken)
     {
         var request = new ReframeRequest
         {
@@ -348,17 +702,16 @@ internal static class Program
             StyleReferenceImages = ConsolePrompts.OptionalImageFiles("Style reference images")
         };
 
-        await ExecuteRequestAsync(
+        await ExecuteInteractiveRequestAsync(
             client,
             outputDirectory,
             "reframe",
             request,
-            shouldDownload: false,
-            static (c, model) => c.ReframeAsync(model),
-            defaultDownloadPrompt: true).ConfigureAwait(false);
+            static (c, model, token) => c.ReframeAsync(model, token),
+            cancellationToken).ConfigureAwait(false);
     }
 
-    private static async Task ExecuteReplaceBackgroundInteractiveAsync(IdeogramClient client, string outputDirectory)
+    private static async Task ExecuteReplaceBackgroundInteractiveAsync(IdeogramClient client, string outputDirectory, CancellationToken cancellationToken)
     {
         var request = new ReplaceBackgroundRequest
         {
@@ -374,52 +727,33 @@ internal static class Program
             StyleReferenceImages = ConsolePrompts.OptionalImageFiles("Style reference images")
         };
 
-        await ExecuteRequestAsync(
+        await ExecuteInteractiveRequestAsync(
             client,
             outputDirectory,
             "replace-background",
             request,
-            shouldDownload: false,
-            static (c, model) => c.ReplaceBackgroundAsync(model),
-            defaultDownloadPrompt: true).ConfigureAwait(false);
+            static (c, model, token) => c.ReplaceBackgroundAsync(model, token),
+            cancellationToken).ConfigureAwait(false);
     }
 
-    private static async Task DownloadSingleImageInteractiveAsync(IdeogramClient client, string outputDirectory)
-    {
-        var imageUrl = ConsolePrompts.RequiredString("Image URL");
-        var outputPath = ConsolePrompts.OptionalPath("Output path") ??
-                         Path.Combine(outputDirectory, $"downloaded.{DetermineExtensionToken(imageUrl)}");
-
-        try
-        {
-            var savedPath = await client.DownloadImageAsync(imageUrl, outputPath).ConfigureAwait(false);
-            OutputWriter.PrintSavedImagePaths([savedPath]);
-        }
-        catch (Exception ex)
-        {
-            System.Console.WriteLine(ex.Message);
-        }
-    }
-
-    private static async Task ExecuteRequestAsync<TRequest>(
+    private static async Task ExecuteInteractiveRequestAsync<TRequest>(
         IdeogramClient client,
         string outputDirectory,
         string methodName,
         TRequest request,
-        bool shouldDownload,
-        Func<IdeogramClient, TRequest, Task<IdeogramResponse>> sendAsync,
-        bool defaultDownloadPrompt)
+        Func<IdeogramClient, TRequest, CancellationToken, Task<IdeogramResponse>> sendAsync,
+        CancellationToken cancellationToken)
     {
         try
         {
-            var response = await sendAsync(client, request).ConfigureAwait(false);
+            var response = await sendAsync(client, request, cancellationToken).ConfigureAwait(false);
             OutputWriter.PrintResponseSummary(response);
             var responsePath = OutputWriter.SaveResponseJson(outputDirectory, methodName, response);
             OutputWriter.PrintSavedResponsePath(responsePath);
 
-            if (shouldDownload || ConsolePrompts.Confirm("Download returned images now?", defaultDownloadPrompt))
+            if (ConsolePrompts.Confirm("Download returned images now?", defaultValue: true))
             {
-                var savedImages = await client.DownloadImagesAsync(response, outputDirectory, methodName).ConfigureAwait(false);
+                var savedImages = await client.DownloadImagesAsync(response, outputDirectory, methodName, cancellationToken).ConfigureAwait(false);
                 OutputWriter.PrintSavedImagePaths(savedImages);
             }
         }
@@ -429,120 +763,21 @@ internal static class Program
         }
     }
 
-    private static GenerateRequest BuildGenerateFromArgs(ManualRunOptions options)
+    private static async Task DownloadSingleImageInteractiveAsync(IdeogramClient client, string outputDirectory, CancellationToken cancellationToken)
     {
-        return new GenerateRequest
-        {
-            Prompt = RequireArg(options, "prompt"),
-            Seed = ParseOptionalInt(SimpleArgsParser.GetValue(options, "seed")),
-            Resolution = SimpleArgsParser.GetValue(options, "resolution"),
-            AspectRatio = SimpleArgsParser.GetValue(options, "aspect-ratio"),
-            RenderingSpeed = SimpleArgsParser.GetValue(options, "rendering-speed"),
-            MagicPrompt = SimpleArgsParser.GetValue(options, "magic-prompt"),
-            NegativePrompt = SimpleArgsParser.GetValue(options, "negative-prompt"),
-            NumImages = ParseOptionalInt(SimpleArgsParser.GetValue(options, "num-images")),
-            StyleType = SimpleArgsParser.GetValue(options, "style-type"),
-            StylePreset = SimpleArgsParser.GetValue(options, "style-preset"),
-            CustomModelUri = SimpleArgsParser.GetValue(options, "custom-model-uri"),
-            StyleCodes = ParseStringList(SimpleArgsParser.GetValue(options, "style-codes")),
-            ColorPalette = ParseColorPaletteFromArgs(options),
-            StyleReferenceImages = ParseImageFiles(SimpleArgsParser.GetValue(options, "style-reference-images")),
-            CharacterReferenceImages = ParseImageFiles(SimpleArgsParser.GetValue(options, "character-reference-images")),
-            CharacterReferenceImageMasks = ParseImageFiles(SimpleArgsParser.GetValue(options, "character-reference-image-masks"))
-        };
-    }
+        var imageUrl = ConsolePrompts.RequiredString("Image URL");
+        var outputPath = ConsolePrompts.OptionalPath("Output path") ??
+                         Path.Combine(outputDirectory, $"downloaded.{DetermineExtensionToken(imageUrl)}");
 
-    private static GenerateTransparentRequest BuildGenerateTransparentFromArgs(ManualRunOptions options)
-    {
-        return new GenerateTransparentRequest
+        try
         {
-            Prompt = RequireArg(options, "prompt"),
-            Seed = ParseOptionalInt(SimpleArgsParser.GetValue(options, "seed")),
-            UpscaleFactor = SimpleArgsParser.GetValue(options, "upscale-factor"),
-            AspectRatio = SimpleArgsParser.GetValue(options, "aspect-ratio"),
-            RenderingSpeed = SimpleArgsParser.GetValue(options, "rendering-speed"),
-            MagicPrompt = SimpleArgsParser.GetValue(options, "magic-prompt"),
-            NegativePrompt = SimpleArgsParser.GetValue(options, "negative-prompt"),
-            NumImages = ParseOptionalInt(SimpleArgsParser.GetValue(options, "num-images"))
-        };
-    }
-
-    private static InpaintRequest BuildInpaintFromArgs(ManualRunOptions options)
-    {
-        return new InpaintRequest
+            var savedPath = await client.DownloadImageAsync(imageUrl, outputPath, cancellationToken).ConfigureAwait(false);
+            OutputWriter.PrintSavedImagePaths([savedPath]);
+        }
+        catch (Exception ex)
         {
-            Image = IdeogramFile.FromPath(RequireArg(options, "image")),
-            Mask = IdeogramFile.FromPath(RequireArg(options, "mask")),
-            Prompt = RequireArg(options, "prompt"),
-            MagicPrompt = SimpleArgsParser.GetValue(options, "magic-prompt"),
-            NumImages = ParseOptionalInt(SimpleArgsParser.GetValue(options, "num-images")),
-            Seed = ParseOptionalInt(SimpleArgsParser.GetValue(options, "seed")),
-            RenderingSpeed = SimpleArgsParser.GetValue(options, "rendering-speed"),
-            StyleType = SimpleArgsParser.GetValue(options, "style-type"),
-            StylePreset = SimpleArgsParser.GetValue(options, "style-preset"),
-            ColorPalette = ParseColorPaletteFromArgs(options),
-            StyleCodes = ParseStringList(SimpleArgsParser.GetValue(options, "style-codes")),
-            StyleReferenceImages = ParseImageFiles(SimpleArgsParser.GetValue(options, "style-reference-images")),
-            CharacterReferenceImages = ParseImageFiles(SimpleArgsParser.GetValue(options, "character-reference-images")),
-            CharacterReferenceImageMasks = ParseImageFiles(SimpleArgsParser.GetValue(options, "character-reference-image-masks"))
-        };
-    }
-
-    private static RemixRequest BuildRemixFromArgs(ManualRunOptions options)
-    {
-        return new RemixRequest
-        {
-            Image = IdeogramFile.FromPath(RequireArg(options, "image")),
-            Prompt = RequireArg(options, "prompt"),
-            ImageWeight = ParseOptionalInt(SimpleArgsParser.GetValue(options, "image-weight")),
-            Seed = ParseOptionalInt(SimpleArgsParser.GetValue(options, "seed")),
-            Resolution = SimpleArgsParser.GetValue(options, "resolution"),
-            AspectRatio = SimpleArgsParser.GetValue(options, "aspect-ratio"),
-            RenderingSpeed = SimpleArgsParser.GetValue(options, "rendering-speed"),
-            MagicPrompt = SimpleArgsParser.GetValue(options, "magic-prompt"),
-            NegativePrompt = SimpleArgsParser.GetValue(options, "negative-prompt"),
-            NumImages = ParseOptionalInt(SimpleArgsParser.GetValue(options, "num-images")),
-            ColorPalette = ParseColorPaletteFromArgs(options),
-            StyleCodes = ParseStringList(SimpleArgsParser.GetValue(options, "style-codes")),
-            StyleType = SimpleArgsParser.GetValue(options, "style-type"),
-            StylePreset = SimpleArgsParser.GetValue(options, "style-preset"),
-            StyleReferenceImages = ParseImageFiles(SimpleArgsParser.GetValue(options, "style-reference-images")),
-            CharacterReferenceImages = ParseImageFiles(SimpleArgsParser.GetValue(options, "character-reference-images")),
-            CharacterReferenceImageMasks = ParseImageFiles(SimpleArgsParser.GetValue(options, "character-reference-image-masks"))
-        };
-    }
-
-    private static ReframeRequest BuildReframeFromArgs(ManualRunOptions options)
-    {
-        return new ReframeRequest
-        {
-            Image = IdeogramFile.FromPath(RequireArg(options, "image")),
-            Resolution = RequireArg(options, "resolution"),
-            NumImages = ParseOptionalInt(SimpleArgsParser.GetValue(options, "num-images")),
-            Seed = ParseOptionalInt(SimpleArgsParser.GetValue(options, "seed")),
-            RenderingSpeed = SimpleArgsParser.GetValue(options, "rendering-speed"),
-            StylePreset = SimpleArgsParser.GetValue(options, "style-preset"),
-            ColorPalette = ParseColorPaletteFromArgs(options),
-            StyleCodes = ParseStringList(SimpleArgsParser.GetValue(options, "style-codes")),
-            StyleReferenceImages = ParseImageFiles(SimpleArgsParser.GetValue(options, "style-reference-images"))
-        };
-    }
-
-    private static ReplaceBackgroundRequest BuildReplaceBackgroundFromArgs(ManualRunOptions options)
-    {
-        return new ReplaceBackgroundRequest
-        {
-            Image = IdeogramFile.FromPath(RequireArg(options, "image")),
-            Prompt = RequireArg(options, "prompt"),
-            MagicPrompt = SimpleArgsParser.GetValue(options, "magic-prompt"),
-            NumImages = ParseOptionalInt(SimpleArgsParser.GetValue(options, "num-images")),
-            Seed = ParseOptionalInt(SimpleArgsParser.GetValue(options, "seed")),
-            RenderingSpeed = SimpleArgsParser.GetValue(options, "rendering-speed"),
-            StylePreset = SimpleArgsParser.GetValue(options, "style-preset"),
-            ColorPalette = ParseColorPaletteFromArgs(options),
-            StyleCodes = ParseStringList(SimpleArgsParser.GetValue(options, "style-codes")),
-            StyleReferenceImages = ParseImageFiles(SimpleArgsParser.GetValue(options, "style-reference-images"))
-        };
+            System.Console.WriteLine(ex.Message);
+        }
     }
 
     private static ColorPalette? PromptColorPalette()
@@ -562,15 +797,14 @@ internal static class Program
         return ColorPalette.FromMembers(members.Select(ParseColorPaletteMember).ToArray());
     }
 
-    private static ColorPalette? ParseColorPaletteFromArgs(ManualRunOptions options)
+    private static ColorPalette? ParseColorPalette(string? preset, string? membersInput)
     {
-        var preset = SimpleArgsParser.GetValue(options, "color-palette");
         if (!string.IsNullOrWhiteSpace(preset))
         {
             return ColorPalette.FromPreset(preset);
         }
 
-        var members = ParseStringList(SimpleArgsParser.GetValue(options, "color-palette-members"));
+        var members = ParseStringList(membersInput);
         if (members is null)
         {
             return null;
@@ -619,19 +853,6 @@ internal static class Program
         return values.Length == 0 ? null : values;
     }
 
-    private static int? ParseOptionalInt(string? input)
-    {
-        return string.IsNullOrWhiteSpace(input)
-            ? null
-            : int.Parse(input, CultureInfo.InvariantCulture);
-    }
-
-    private static string RequireArg(ManualRunOptions options, string key)
-    {
-        return SimpleArgsParser.GetValue(options, key)
-            ?? throw new ArgumentException($"Missing required option '--{key}'.");
-    }
-
     private static string DetermineExtensionToken(string imageUrl)
     {
         if (!Uri.TryCreate(imageUrl, UriKind.Absolute, out var uri))
@@ -645,6 +866,39 @@ internal static class Program
             ".jpeg" => "jpeg",
             ".webp" => "webp",
             _ => "png"
+        };
+    }
+
+    private static Option<string?> CreateStringOption(string name, string description)
+    {
+        return new Option<string?>(name)
+        {
+            Description = description
+        };
+    }
+
+    private static Option<string?> CreateRequiredStringOption(string name, string description)
+    {
+        return new Option<string?>(name)
+        {
+            Description = description,
+            Required = true
+        };
+    }
+
+    private static Option<int?> CreateIntOption(string name, string description)
+    {
+        return new Option<int?>(name)
+        {
+            Description = description
+        };
+    }
+
+    private static Option<bool> CreateDownloadOption()
+    {
+        return new Option<bool>("--download")
+        {
+            Description = "Download returned images immediately."
         };
     }
 }

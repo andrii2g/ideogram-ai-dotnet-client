@@ -3,11 +3,11 @@
 ################################################################################
 
 /.dotnet-home
-/.vs/IdeogramV3DotNet/FileContentIndex
 /samples/Ideogram.Client.Console/obj
 /src/Ideogram.Client/obj
-/samples/Ideogram.Client.Console/bin/Debug/net10.0
-/src/Ideogram.Client/bin/Debug/net10.0
-/.vs/IdeogramV3DotNet/v18
-/.probe/bin/Debug/net10.0
+/samples/Ideogram.Client.Console/bin
+/src/Ideogram.Client/bin
+/.vs
+/.probe/bin
 /.probe/obj
+/.nuget-packages

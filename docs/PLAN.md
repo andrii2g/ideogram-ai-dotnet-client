@@ -124,7 +124,8 @@ Create this structure:
 ideogram-v3-dotnet-client/
 ├─ IdeogramV3DotNet.sln
 ├─ README.md
-├─ PLAN.md
+├─ docs/
+│  └─ PLAN.md
 ├─ src/
 │  └─ Ideogram.Client/
 │     ├─ Ideogram.Client.csproj
@@ -2653,4 +2654,4 @@ The implementation is complete when:
 24. No unit test project exists.
 25. No integration test project exists.
 26. README documents usage.
-27. `PLAN.md` remains in the repository.
+27. `docs/PLAN.md` remains in the repository.
