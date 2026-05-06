@@ -36,7 +36,29 @@ PowerShell:
 $env:IDEOGRAM_API_KEY = "your-api-key"
 ```
 
-The console app also supports `--api-key <key>` and an interactive hidden prompt fallback.
+The console app resolves the API key in this order:
+
+1. `--api-key <key>`
+2. `IDEOGRAM_API_KEY`
+3. `appsettings.json`
+
+If none of those sources provides a key, the console app exits with an error.
+
+`appsettings.json` can use either of these shapes:
+
+```json
+{
+  "Ideogram": {
+    "ApiKey": "your-api-key"
+  }
+}
+```
+
+```json
+{
+  "IdeogramApiKey": "your-api-key"
+}
+```
 
 ## Minimal library usage
 

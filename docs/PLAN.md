@@ -122,7 +122,7 @@ Create this structure:
 
 ```text
 ideogram-v3-dotnet-client/
-├─ IdeogramV3DotNet.sln
+├─ IdeogramV3DotNet.slnx
 ├─ README.md
 ├─ docs/
 │  └─ PLAN.md
@@ -193,8 +193,8 @@ dotnet new console \
   --output samples/Ideogram.Client.Console \
   --framework net10.0
 
-dotnet sln IdeogramV3DotNet.sln add src/Ideogram.Client/Ideogram.Client.csproj
-dotnet sln IdeogramV3DotNet.sln add samples/Ideogram.Client.Console/Ideogram.Client.Console.csproj
+dotnet sln IdeogramV3DotNet.slnx add src/Ideogram.Client/Ideogram.Client.csproj
+dotnet sln IdeogramV3DotNet.slnx add samples/Ideogram.Client.Console/Ideogram.Client.Console.csproj
 dotnet add samples/Ideogram.Client.Console/Ideogram.Client.Console.csproj reference src/Ideogram.Client/Ideogram.Client.csproj
 ```
 

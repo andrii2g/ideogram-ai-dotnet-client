@@ -2,6 +2,7 @@ using Ideogram.Client.Constants;
 using Ideogram.Client.Models;
 using System.CommandLine;
 using System.Globalization;
+using System.Text.Json;
 
 namespace Ideogram.Client.ConsoleApp;
 
@@ -17,7 +18,7 @@ internal static class Program
     {
         var apiKeyOption = new Option<string?>("--api-key")
         {
-            Description = "Ideogram API key. Falls back to IDEOGRAM_API_KEY or an interactive prompt.",
+            Description = "Ideogram API key. Falls back to IDEOGRAM_API_KEY or appsettings.json.",
             Recursive = true
         };
 
@@ -488,22 +489,93 @@ internal static class Program
 
     private static string ResolveApiKey(string? commandLineApiKey)
     {
-        var apiKey = commandLineApiKey ?? Environment.GetEnvironmentVariable("IDEOGRAM_API_KEY");
+        var apiKey = commandLineApiKey
+                     ?? Environment.GetEnvironmentVariable("IDEOGRAM_API_KEY")
+                     ?? TryReadApiKeyFromAppSettings();
+
         if (!string.IsNullOrWhiteSpace(apiKey))
         {
             return apiKey;
         }
 
-        while (true)
+        throw new InvalidOperationException(
+            "Ideogram API key was not found. Provide --api-key, set IDEOGRAM_API_KEY, or add it to appsettings.json.");
+    }
+
+    private static string? TryReadApiKeyFromAppSettings()
+    {
+        foreach (var path in GetAppSettingsCandidatePaths())
         {
-            var secret = ConsolePrompts.ReadSecret("Enter Ideogram API key: ");
-            if (!string.IsNullOrWhiteSpace(secret))
+            if (!File.Exists(path))
             {
-                return secret;
+                continue;
             }
 
-            System.Console.WriteLine("API key is required.");
+            try
+            {
+                using var stream = File.OpenRead(path);
+                using var document = JsonDocument.Parse(stream);
+
+                if (TryGetApiKey(document.RootElement, out var apiKey))
+                {
+                    return apiKey;
+                }
+            }
+            catch (JsonException ex)
+            {
+                throw new InvalidOperationException($"Failed to parse appsettings file '{path}': {ex.Message}", ex);
+            }
+            catch (IOException ex)
+            {
+                throw new InvalidOperationException($"Failed to read appsettings file '{path}': {ex.Message}", ex);
+            }
         }
+
+        return null;
+    }
+
+    private static IEnumerable<string> GetAppSettingsCandidatePaths()
+    {
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var currentDirectoryPath = Path.Combine(Directory.GetCurrentDirectory(), "appsettings.json");
+        if (seen.Add(currentDirectoryPath))
+        {
+            yield return currentDirectoryPath;
+        }
+
+        var baseDirectoryPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
+        if (seen.Add(baseDirectoryPath))
+        {
+            yield return baseDirectoryPath;
+        }
+    }
+
+    private static bool TryGetApiKey(JsonElement root, out string? apiKey)
+    {
+        apiKey = null;
+
+        if (root.ValueKind != JsonValueKind.Object)
+        {
+            return false;
+        }
+
+        if (root.TryGetProperty("Ideogram", out var ideogramSection) &&
+            ideogramSection.ValueKind == JsonValueKind.Object &&
+            ideogramSection.TryGetProperty("ApiKey", out var nestedApiKey) &&
+            nestedApiKey.ValueKind == JsonValueKind.String)
+        {
+            apiKey = nestedApiKey.GetString();
+            return !string.IsNullOrWhiteSpace(apiKey);
+        }
+
+        if (root.TryGetProperty("IdeogramApiKey", out var rootApiKey) &&
+            rootApiKey.ValueKind == JsonValueKind.String)
+        {
+            apiKey = rootApiKey.GetString();
+            return !string.IsNullOrWhiteSpace(apiKey);
+        }
+
+        return false;
     }
 
     private static async Task RunInteractiveMenuAsync(IdeogramClient client, string outputDirectory, CancellationToken cancellationToken)
