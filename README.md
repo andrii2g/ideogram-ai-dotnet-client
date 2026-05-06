@@ -1,6 +1,6 @@
-# Ideogram AI API v3 REST Client for .NET 10
+# Ideogram AI API v3 REST Client for .NET
 
-.NET 10 client library and companion sample apps for Ideogram AI API v3. The client talks to the API with `HttpClient` and `multipart/form-data`, and also includes optional DI registration support based on `IHttpClientFactory`.
+.NET 8, .NET 9, and .NET 10 client library and companion sample apps for Ideogram AI API v3. The client talks to the API with `HttpClient` and `multipart/form-data`, and also includes optional DI registration support based on `IHttpClientFactory`.
 
 ## Supported endpoints
 
