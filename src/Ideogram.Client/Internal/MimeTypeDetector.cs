@@ -36,6 +36,21 @@ internal static class MimeTypeDetector
         return !string.IsNullOrWhiteSpace(contentType) && SupportedContentTypes.Contains(contentType);
     }
 
+    public static string GetDefaultFileExtensionFromContentType(string contentType)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(contentType);
+
+        foreach (var pair in ExtensionToMimeType)
+        {
+            if (string.Equals(pair.Value, contentType, StringComparison.OrdinalIgnoreCase))
+            {
+                return pair.Key;
+            }
+        }
+
+        throw new ArgumentException($"Unsupported image MIME type '{contentType}'.", nameof(contentType));
+    }
+
     public static bool IsSupportedFileExtension(string? fileName)
     {
         if (string.IsNullOrWhiteSpace(fileName))
