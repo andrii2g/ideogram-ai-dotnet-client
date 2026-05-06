@@ -1,6 +1,3 @@
-using Ideogram.Client;
-using Ideogram.Client.Models;
-
 namespace Ideogram.Client.ConsoleApp;
 
 internal static class ConsolePrompts
