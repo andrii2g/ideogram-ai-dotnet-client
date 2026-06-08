@@ -53,10 +53,10 @@ jobs:
           echo "package_version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Restore
-        run: dotnet restore IdeogramV3DotNet.slnx
+        run: dotnet restore Ideogram.slnx
 
       - name: Build
-        run: dotnet build IdeogramV3DotNet.slnx --configuration Release --no-restore
+        run: dotnet build Ideogram.slnx --configuration Release --no-restore
 
       - name: Pack library
         run: >
