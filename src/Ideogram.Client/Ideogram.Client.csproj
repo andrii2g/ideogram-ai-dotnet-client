@@ -28,7 +28,7 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <PackageId>A2G.Ideogram.Client</PackageId>
     <Title>A2G Ideogram .NET Client</Title>
-    <Description>.NET client for Ideogram AI API v3 with HttpClient-based transport and optional DI integration.</Description>
+    <Description>.NET client for Ideogram AI API v3 and v4 with HttpClient-based transport and optional DI integration.</Description>
     <Authors>A2G</Authors>
     <PackageTags>ideogram;ai;dotnet;httpclient;github-packages</PackageTags>
     <RepositoryUrl>https://github.com/andrii2g/ideogram-ai-dotnet-client</RepositoryUrl>
@@ -37,7 +37,7 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>package-icon.png</PackageIcon>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <VersionPrefix>1.2.0</VersionPrefix>
+    <VersionPrefix>1.3.0</VersionPrefix>
     <IncludeSymbols>True</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
   </PropertyGroup>

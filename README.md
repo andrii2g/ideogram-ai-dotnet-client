@@ -1,8 +1,18 @@
-# Ideogram AI API v3 REST Client for .NET
+# Ideogram AI API REST Client for .NET
 
-.NET 8, .NET 9, and .NET 10 client library and companion sample apps for Ideogram AI API v3. The client talks to the API with `HttpClient` and `multipart/form-data`, and also includes optional DI registration support based on `IHttpClientFactory`.
+.NET 8, .NET 9, and .NET 10 client library and companion sample apps for Ideogram AI API v3 and v4. The client talks to the API with `HttpClient`, `multipart/form-data`, and JSON where required, and also includes optional DI registration support based on `IHttpClientFactory`.
 
 ## Supported endpoints
+
+### V4
+
+- `POST /v1/ideogram-v4/generate` via `GenerateFromTextAsync`
+- `POST /v1/ideogram-v4/generate` via `GenerateFromJsonAsync`
+- `POST /v1/ideogram-v4/remix`
+- `POST /v1/ideogram-v4/magic-prompt`
+- `POST /v1/ideogram-v4/describe`
+
+### V3
 
 - `POST /v1/ideogram-v3/generate`
 - `POST /v1/ideogram-v3/generate-transparent`
@@ -14,8 +24,8 @@
 ## Build
 
 ```bash
-dotnet restore IdeogramV3DotNet.slnx
-dotnet build IdeogramV3DotNet.slnx
+dotnet restore Ideogram.slnx
+dotnet build Ideogram.slnx
 ```
 
 ## API key setup
@@ -43,6 +53,8 @@ If none of those sources provides a key, the console app exits with an error.
 
 ## Minimal library usage
 
+### V3
+
 ```csharp
 using A2G.Ideogram.Client;
 using A2G.Ideogram.Client.Constants;
@@ -64,6 +76,40 @@ var response = await client.GenerateAsync(new GenerateRequest
 await client.DownloadImagesAsync(response, "outputs", "generate");
 ```
 
+### V4 text prompt
+
+```csharp
+using A2G.Ideogram.Client;
+using A2G.Ideogram.Client.Constants;
+using A2G.Ideogram.Client.V4.Models;
+
+var client = new IdeogramV4Client(new IdeogramClientOptions
+{
+    ApiKey = Environment.GetEnvironmentVariable("IDEOGRAM_API_KEY")
+        ?? throw new InvalidOperationException("IDEOGRAM_API_KEY is not set.")
+});
+
+var response = await client.GenerateFromTextAsync(new GenerateFromTextRequest
+{
+    TextPrompt = "A clean product hero shot of a ceramic coffee mug.",
+    RenderingSpeed = IdeogramRenderingSpeed.Default
+});
+```
+
+### V4 structured prompt
+
+```csharp
+using A2G.Ideogram.Client.V4.Models;
+
+var response = await client.GenerateFromJsonAsync(new GenerateFromJsonRequest
+{
+    JsonPrompt = new JsonPrompt
+    {
+        HighLevelDescription = "A modern ceramic coffee mug on a studio pedestal."
+    }
+});
+```
+
 ## Dependency injection
 
 The library can be registered with `IHttpClientFactory`:
@@ -79,6 +125,18 @@ builder.Services.AddIdeogramClient(new IdeogramClientOptions
 ```
 
 You can inject either `IIdeogramClient` or `IdeogramClient` into your services. The registration creates isolated named `HttpClient` instances for API and download traffic and keeps the existing credential-safety split intact.
+
+For V4:
+
+```csharp
+builder.Services.AddIdeogramV4Client(new IdeogramClientOptions
+{
+    ApiKey = builder.Configuration["Ideogram:ApiKey"]
+        ?? throw new InvalidOperationException("Ideogram:ApiKey is not configured.")
+});
+```
+
+You can inject either `IIdeogramV4Client` or `IdeogramV4Client`.
 
 Inpaint example:
 
@@ -124,4 +182,5 @@ dotnet run --project samples/Ideogram.Client.Console -- inpaint \
 
 - Ideogram image URLs expire, so download them immediately when needed.
 - All v3 methods use `multipart/form-data`.
+- V4 `magic-prompt` uses JSON; V4 `generate`, `remix`, and `describe` use `multipart/form-data`.
 - The transparent endpoint does not support `FLASH`.

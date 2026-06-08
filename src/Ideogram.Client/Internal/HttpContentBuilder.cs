@@ -54,6 +54,24 @@ internal static class HttpContentBuilder
             name);
     }
 
+    public static void AddOptionalBool(
+        MultipartFormDataContent content,
+        string name,
+        bool? value)
+    {
+        ArgumentNullException.ThrowIfNull(content);
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+
+        if (!value.HasValue)
+        {
+            return;
+        }
+
+        content.Add(
+            new StringContent(value.Value ? "true" : "false", Encoding.UTF8),
+            name);
+    }
+
     public static void AddRepeatedStrings(
         MultipartFormDataContent content,
         string name,
@@ -126,5 +144,18 @@ internal static class HttpContentBuilder
 
         var json = JsonSerializer.Serialize(colorPalette, JsonDefaults.Compact);
         content.Add(new StringContent(json, Encoding.UTF8), "color_palette");
+    }
+
+    public static void AddJson<TValue>(
+        MultipartFormDataContent content,
+        string name,
+        TValue value)
+    {
+        ArgumentNullException.ThrowIfNull(content);
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        ArgumentNullException.ThrowIfNull(value);
+
+        var json = JsonSerializer.Serialize(value, JsonDefaults.Compact);
+        content.Add(new StringContent(json, Encoding.UTF8), name);
     }
 }
