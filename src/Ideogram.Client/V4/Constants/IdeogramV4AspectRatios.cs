@@ -1,10 +1,9 @@
-using System.Text.RegularExpressions;
+namespace A2G.Ideogram.Client.Constants.V4;
 
-namespace A2G.Ideogram.Client.Constants;
-
-public static partial class IdeogramV4AspectRatios
+public static class AspectRatiosV4
 {
     public const string Auto = "AUTO";
+    public const string Ratio1x4 = "1x4";
     public const string Ratio1x3 = "1x3";
     public const string Ratio1x2 = "1x2";
     public const string Ratio9x16 = "9x16";
@@ -20,10 +19,12 @@ public static partial class IdeogramV4AspectRatios
     public const string Ratio16x9 = "16x9";
     public const string Ratio2x1 = "2x1";
     public const string Ratio3x1 = "3x1";
+    public const string Ratio4x1 = "4x1";
 
     public static readonly IReadOnlySet<string> Known = new HashSet<string>(StringComparer.Ordinal)
     {
         Auto,
+        Ratio1x4,
         Ratio1x3,
         Ratio1x2,
         Ratio9x16,
@@ -38,7 +39,8 @@ public static partial class IdeogramV4AspectRatios
         Ratio16x10,
         Ratio16x9,
         Ratio2x1,
-        Ratio3x1
+        Ratio3x1,
+        Ratio4x1,
     };
 
     public static string Normalize(string value)
@@ -50,9 +52,7 @@ public static partial class IdeogramV4AspectRatios
     public static bool IsValid(string value)
     {
         var normalized = Normalize(value);
-        return Known.Contains(normalized) || RatioPattern().IsMatch(normalized);
+        return Known.Contains(normalized);
     }
 
-    [GeneratedRegex(@"^\d+x\d+$", RegexOptions.CultureInvariant)]
-    private static partial Regex RatioPattern();
 }

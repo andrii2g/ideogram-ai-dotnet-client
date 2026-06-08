@@ -1,4 +1,5 @@
 using A2G.Ideogram.Client.Constants;
+using A2G.Ideogram.Client.Constants.V4;
 using A2G.Ideogram.Client.V4.Models;
 
 namespace A2G.Ideogram.Client.V4.Validation;
@@ -42,7 +43,7 @@ internal static class RequestValidator
         ValidateTextPrompt(request.TextPrompt, nameof(MagicPromptRequest));
 
         if (!string.IsNullOrWhiteSpace(request.AspectRatio) &&
-            !IdeogramV4AspectRatios.IsValid(request.AspectRatio))
+            !AspectRatiosV4.IsValid(request.AspectRatio))
         {
             throw new ArgumentException($"{nameof(MagicPromptRequest)}.AspectRatio must be AUTO or an NxM ratio.", nameof(request.AspectRatio));
         }
@@ -69,7 +70,7 @@ internal static class RequestValidator
             return;
         }
 
-        if (!IdeogramV4Resolutions.IsValid(value))
+        if (!Resolutions.IsValid(value))
         {
             throw new ArgumentException($"{requestTypeName}.Resolution must use WIDTHxHEIGHT format.", nameof(value));
         }

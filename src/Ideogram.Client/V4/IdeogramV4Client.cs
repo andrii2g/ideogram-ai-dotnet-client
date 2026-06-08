@@ -1,5 +1,6 @@
 using A2G.Ideogram.Client.Internal;
 using A2G.Ideogram.Client.Models;
+using A2G.Ideogram.Client.Constants.V4;
 using A2G.Ideogram.Client.V4.Models;
 using A2G.Ideogram.Client.V4.Validation;
 using System.Globalization;
@@ -141,7 +142,7 @@ public sealed class IdeogramV4Client : IIdeogramV4Client, IDisposable
         var payload = new
         {
             text_prompt = request.TextPrompt,
-            aspect_ratio = string.IsNullOrWhiteSpace(request.AspectRatio) ? null : Constants.IdeogramV4AspectRatios.Normalize(request.AspectRatio)
+            aspect_ratio = string.IsNullOrWhiteSpace(request.AspectRatio) ? null : AspectRatiosV4.Normalize(request.AspectRatio)
         };
 
         return SendJsonAsync<object, MagicPromptResponse>("/v1/ideogram-v4/magic-prompt", payload, cancellationToken);
